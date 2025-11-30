@@ -1,1 +1,1565 @@
-# reverse.github.io
+
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Jeu de Collection de Cartes</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #1a2a6c, #b21f1f, #fdbb2d);
+            min-height: 100vh;
+            padding: 20px;
+            color: #fff;
+            position: relative;
+            overflow-x: hidden;
+        }
+
+        body::before {
+            content: '';
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.4);
+            z-index: -1;
+        }
+
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+            position: relative;
+        }
+
+        header {
+            text-align: center;
+            margin-bottom: 30px;
+            background: rgba(0, 0, 0, 0.7);
+            padding: 20px;
+            border-radius: 20px;
+            backdrop-filter: blur(10px);
+            position: relative;
+            border: 2px solid rgba(255, 215, 0, 0.3);
+        }
+
+        header::before {
+            content: '';
+            position: absolute;
+            top: -2px;
+            left: -2px;
+            right: -2px;
+            bottom: -2px;
+            background: linear-gradient(45deg, #ffd700, #ff6b9d, #c44569, #667eea, #ffd700);
+            border-radius: 22px;
+            z-index: -1;
+            animation: borderGlow 3s linear infinite;
+        }
+
+        @keyframes borderGlow {
+            0% { filter: hue-rotate(0deg); }
+            100% { filter: hue-rotate(360deg); }
+        }
+
+        h1 {
+            font-size: 2.5em;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.3);
+            margin-bottom: 10px;
+        }
+
+        .subtitle {
+            font-size: 1.2em;
+            opacity: 0.9;
+        }
+
+        .stats {
+            display: flex;
+            justify-content: center;
+            gap: 30px;
+            margin: 20px 0;
+            flex-wrap: wrap;
+        }
+
+        .stat-box {
+            background: linear-gradient(45deg, #ff6b9d, #c44569);
+            padding: 15px 30px;
+            border-radius: 15px;
+            backdrop-filter: blur(10px);
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.3);
+            border: 2px solid rgba(255, 255, 255, 0.2);
+        }
+
+        .stat-box h3 {
+            font-size: 0.9em;
+            opacity: 0.9;
+            margin-bottom: 5px;
+        }
+
+        .stat-box .value {
+            font-size: 1.8em;
+            font-weight: bold;
+        }
+
+        /* Affichage du pool de drop */
+        .drop-pool-display {
+            background: linear-gradient(45deg, #f39c12, #e67e22);
+            padding: 15px 30px;
+            border-radius: 15px;
+            backdrop-filter: blur(10px);
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.3);
+            border: 2px solid rgba(255, 255, 255, 0.2);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+
+        .drop-pool-label {
+            font-size: 0.9em;
+            opacity: 0.9;
+            margin-bottom: 5px;
+        }
+
+        .drop-pool-value {
+            font-size: 1.8em;
+            font-weight: bold;
+            color: #feca57;
+        }
+
+        /* Affichage du dernier alignement */
+        .last-alignment-display {
+            background: linear-gradient(45deg, #9b59b6, #8e44ad);
+            padding: 15px 30px;
+            border-radius: 15px;
+            backdrop-filter: blur(10px);
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.3);
+            border: 2px solid rgba(255, 255, 255, 0.2);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .last-alignment-label {
+            font-size: 0.9em;
+            opacity: 0.9;
+            margin-bottom: 5px;
+        }
+
+        .last-alignment-value {
+            font-size: 1.8em;
+            font-weight: bold;
+            color: #e74c3c;
+        }
+
+        .boosters {
+            display: flex;
+            justify-content: center;
+            gap: 20px;
+            margin: 40px 0;
+            flex-wrap: wrap;
+        }
+
+        .booster {
+            background: rgba(0, 0, 0, 0.7);
+            border-radius: 15px;
+            padding: 25px;
+            text-align: center;
+            backdrop-filter: blur(10px);
+            border: 3px solid rgba(255,255,255,0.3);
+            transition: transform 0.3s, box-shadow 0.3s;
+            cursor: pointer;
+            position: relative;
+        }
+
+        .booster.bronze {
+            min-width: 200px;
+        }
+
+        .booster.silver, .booster.gold {
+            min-width: 160px;
+        }
+
+        .booster::before {
+            content: '';
+            position: absolute;
+            top: -3px;
+            left: -3px;
+            right: -3px;
+            bottom: -3px;
+            border-radius: 17px;
+            z-index: -1;
+            opacity: 0;
+            transition: opacity 0.3s;
+        }
+
+        .booster.bronze::before {
+            background: linear-gradient(45deg, #cd7f32, #e5a962);
+            animation: bronzeGlow 2s linear infinite;
+        }
+
+        .booster.silver::before {
+            background: linear-gradient(45deg, #c0c0c0, #e8e8e8);
+            animation: silverGlow 2s linear infinite;
+        }
+
+        .booster.gold::before {
+            background: linear-gradient(45deg, #ffd700, #ffed4e);
+            animation: goldGlow 2s linear infinite;
+        }
+
+        @keyframes bronzeGlow {
+            0%, 100% { opacity: 0.5; }
+            50% { opacity: 0.8; }
+        }
+
+        @keyframes silverGlow {
+            0%, 100% { opacity: 0.5; }
+            50% { opacity: 0.8; }
+        }
+
+        @keyframes goldGlow {
+            0%, 100% { opacity: 0.6; }
+            50% { opacity: 1; }
+        }
+
+        .booster:hover {
+            transform: translateY(-5px) scale(1.02);
+            box-shadow: 0 15px 40px rgba(0,0,0,0.5);
+        }
+
+        .booster:hover::before {
+            opacity: 1;
+        }
+
+        .booster h2 {
+            margin-bottom: 10px;
+            font-size: 1.5em;
+        }
+
+        .booster-image {
+            width: 80px;
+            height: 80px;
+            margin: 10px auto;
+            border-radius: 10px;
+            object-fit: contain;
+            background: rgba(255, 255, 255, 0.1);
+            padding: 5px;
+        }
+
+        .booster .info {
+            opacity: 0.9;
+            margin: 10px 0;
+        }
+
+        .booster button {
+            background: linear-gradient(45deg, #ff6b9d, #c44569);
+            color: white;
+            border: none;
+            padding: 15px 35px;
+            border-radius: 25px;
+            font-size: 1.2em;
+            cursor: pointer;
+            margin-top: 15px;
+            transition: all 0.3s ease;
+            font-weight: bold;
+            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.4);
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+
+        .booster button:hover {
+            transform: scale(1.1) translateY(-2px);
+            box-shadow: 0 8px 25px rgba(0, 0, 0, 0.5);
+            background: linear-gradient(45deg, #feca57, #ff6b9d);
+        }
+
+        .booster button:active {
+            transform: scale(0.98);
+        }
+
+        .quantity-selector {
+            display: flex;
+            gap: 8px;
+            justify-content: center;
+            margin: 15px 0 10px 0;
+            flex-wrap: wrap;
+        }
+
+        .quantity-btn {
+            background: rgba(255, 255, 255, 0.1);
+            color: rgba(255, 255, 255, 0.6);
+            border: 2px solid rgba(255, 255, 255, 0.3);
+            padding: 8px 15px;
+            border-radius: 12px;
+            font-size: 0.9em;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            font-weight: bold;
+        }
+
+        .quantity-btn:hover {
+            background: rgba(255, 255, 255, 0.2);
+            color: rgba(255, 255, 255, 0.8);
+        }
+
+        .quantity-btn.active {
+            background: linear-gradient(45deg, #10ac84, #1dd1a1);
+            color: white;
+            border-color: #10ac84;
+            box-shadow: 0 4px 15px rgba(16, 172, 132, 0.4);
+        }
+
+        .cards-reveal {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0,0,0,0.95);
+            display: none;
+            justify-content: center;
+            align-items: center;
+            z-index: 1000;
+            padding: 20px;
+            backdrop-filter: blur(10px);
+        }
+
+        .cards-reveal.active {
+            display: flex;
+            animation: fadeIn 0.3s ease-out;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; }
+            to { opacity: 1; }
+        }
+
+        .reveal-content {
+            text-align: center;
+            max-width: 95%;
+        }
+
+        .result-message {
+            font-size: 3em;
+            font-weight: bold;
+            margin-bottom: 30px;
+            text-shadow: 0 3px 10px rgba(0,0,0,0.5);
+        }
+
+        .result-message.win {
+            color: #ffd700;
+            animation: winPulse 1s ease-in-out infinite;
+        }
+
+        .result-message.lose {
+            color: #ff6b9d;
+        }
+
+        @keyframes winPulse {
+            0%, 100% { transform: scale(1); text-shadow: 0 0 20px #ffd700; }
+            50% { transform: scale(1.05); text-shadow: 0 0 40px #ffd700; }
+        }
+
+        .cards-container {
+            display: flex;
+            gap: 20px;
+            flex-wrap: wrap;
+            justify-content: center;
+            animation: revealCards 0.5s ease-out;
+            max-height: 60vh;
+            overflow-y: auto;
+            padding: 20px;
+        }
+
+        @keyframes revealCards {
+            from {
+                opacity: 0;
+                transform: scale(0.8) translateY(50px);
+            }
+            to {
+                opacity: 1;
+                transform: scale(1) translateY(0);
+            }
+        }
+
+        .card {
+            width: 200px;
+            height: 280px;
+            background: #1a1a2e;
+            border-radius: 15px;
+            border: 4px solid #ffd700;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            padding: 8px;
+            animation: cardFlip 0.6s ease-out;
+            position: relative;
+            box-shadow: 0 8px 25px rgba(0,0,0,0.6);
+            overflow: hidden;
+        }
+
+        .card::before {
+            content: '';
+            position: absolute;
+            top: -4px;
+            left: -4px;
+            right: -4px;
+            bottom: -4px;
+            background: linear-gradient(45deg, #ffd700, #ff6b9d, #c44569, #667eea, #ffd700);
+            border-radius: 17px;
+            z-index: -1;
+            animation: cardBorderGlow 3s linear infinite;
+        }
+
+        @keyframes cardBorderGlow {
+            0% { filter: hue-rotate(0deg); }
+            100% { filter: hue-rotate(360deg); }
+        }
+
+        @keyframes cardFlip {
+            0% {
+                transform: rotateY(180deg);
+            }
+            100% {
+                transform: rotateY(0deg);
+            }
+        }
+
+        .card img {
+            width: 100%;
+            height: 100%;
+            object-fit: contain;
+            border-radius: 10px;
+            padding: 5px;
+        }
+
+        .card.is-quad {
+            border-color: #fff;
+            animation: pulse 1s infinite, cardFlip 0.6s ease-out;
+        }
+
+        .card.is-quad::before {
+            background: linear-gradient(45deg, #ffd700, #ffed4e, #feca57, #ffd700);
+            animation: quadGlow 1.5s ease-in-out infinite alternate;
+        }
+
+        @keyframes quadGlow {
+            0% { filter: brightness(1) hue-rotate(0deg); }
+            100% { filter: brightness(1.3) hue-rotate(20deg); }
+        }
+
+        @keyframes pulse {
+            0%, 100% {
+                box-shadow: 0 0 30px #ffd700, 0 0 60px #ffd700;
+                transform: scale(1);
+            }
+            50% {
+                box-shadow: 0 0 50px #ffd700, 0 0 100px #ffd700;
+                transform: scale(1.05);
+            }
+        }
+
+        .card-count {
+            position: absolute;
+            bottom: 10px;
+            right: 10px;
+            background: rgba(0,0,0,0.8);
+            padding: 5px 12px;
+            border-radius: 15px;
+            font-size: 0.9em;
+            font-weight: bold;
+            border: 2px solid rgba(255,255,255,0.3);
+        }
+
+        .close-reveal {
+            position: fixed;
+            top: 30px;
+            right: 30px;
+            background: linear-gradient(45deg, #ff6b9d, #c44569);
+            color: white;
+            border: 3px solid #fff;
+            padding: 15px 30px;
+            border-radius: 25px;
+            font-size: 1.2em;
+            cursor: pointer;
+            font-weight: bold;
+            box-shadow: 0 5px 20px rgba(0, 0, 0, 0.5);
+            transition: all 0.3s ease;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            z-index: 1001;
+        }
+
+        .close-reveal:hover {
+            transform: scale(1.1) translateY(-2px);
+            box-shadow: 0 8px 30px rgba(0, 0, 0, 0.6);
+            background: linear-gradient(45deg, #feca57, #ff6b9d);
+        }
+
+        /* Animation de drop */
+        .drop-animation {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            z-index: 9999;
+            background: rgba(0, 0, 0, 0.85);
+            animation: dropFadeIn 0.5s ease;
+        }
+
+        @keyframes dropFadeIn {
+            from { opacity: 0; }
+            to { opacity: 1; }
+        }
+
+        .drop-popup {
+            background: linear-gradient(135deg, #f39c12, #e67e22, #f39c12);
+            padding: 30px;
+            border-radius: 20px;
+            text-align: center;
+            max-width: 500px;
+            animation: dropScaleIn 0.6s ease;
+            border: 4px solid #feca57;
+            box-shadow: 0 0 40px rgba(243, 156, 18, 0.8);
+            position: relative;
+            overflow: hidden;
+            z-index: 10000;
+        }
+
+        @keyframes dropScaleIn {
+            from { 
+                transform: scale(0.2) rotate(-5deg);
+                opacity: 0;
+            }
+            to { 
+                transform: scale(1) rotate(0deg);
+                opacity: 1;
+            }
+        }
+
+        .drop-popup-icon {
+            font-size: 6em;
+            margin-bottom: 15px;
+            animation: dropBounce 0.8s infinite;
+            filter: drop-shadow(0 0 15px rgba(255, 255, 255, 0.8));
+        }
+
+        @keyframes dropBounce {
+            0%, 100% { transform: translateY(0) scale(1); }
+            50% { transform: translateY(-20px) scale(1.1); }
+        }
+
+        .drop-popup-title {
+            font-size: 2.5em;
+            margin-bottom: 10px;
+            color: white;
+            text-shadow: 0 0 15px rgba(0,0,0,0.8);
+            background: linear-gradient(45deg, #f39c12, #e67e22);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+
+        .drop-popup-description {
+            font-size: 1.3em;
+            margin-bottom: 20px;
+            color: white;
+            font-weight: bold;
+            text-shadow: 0 0 8px rgba(0,0,0,0.5);
+        }
+
+        .drop-close {
+            padding: 12px 25px;
+            background: linear-gradient(45deg, #f39c12, #e67e22);
+            border: none;
+            border-radius: 50px;
+            color: white;
+            font-size: 1.1em;
+            cursor: pointer;
+            transition: all 0.3s;
+            font-weight: bold;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.3);
+            z-index: 10001;
+        }
+
+        .drop-close:hover {
+            background: linear-gradient(45deg, #e67e22, #f39c12);
+            transform: scale(1.05);
+            box-shadow: 0 8px 20px rgba(0,0,0,0.4);
+        }
+
+        @media (max-width: 1024px) and (min-width: 769px) {
+            .container {
+                max-width: 95%;
+            }
+
+            .boosters {
+                gap: 15px;
+            }
+
+            .booster {
+                min-width: 180px;
+                padding: 20px;
+            }
+
+            .collection-grid {
+                grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+                gap: 18px;
+            }
+
+            .collection-card img {
+                height: 150px;
+            }
+
+            .stat-box {
+                padding: 12px 25px;
+            }
+
+            .card {
+                width: 180px;
+                height: 252px;
+            }
+
+            .cards-container {
+                gap: 18px;
+                padding: 15px;
+            }
+        }
+
+        @media (max-width: 768px) {
+            .card {
+                width: 150px;
+                height: 210px;
+            }
+
+            .result-message {
+                font-size: 2em;
+            }
+
+            h1 {
+                font-size: 2em;
+            }
+
+            .collection-grid {
+                grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
+                gap: 15px;
+            }
+
+            .collection-card img {
+                height: 140px;
+            }
+
+            .boosters {
+                flex-direction: column;
+                align-items: center;
+            }
+
+            .booster {
+                width: 100%;
+                max-width: 300px;
+            }
+
+            .stat-box {
+                padding: 10px 20px;
+            }
+
+            .stat-box .value {
+                font-size: 1.5em;
+            }
+
+            .close-reveal {
+                top: 15px;
+                right: 15px;
+                padding: 10px 20px;
+                font-size: 1em;
+            }
+        }
+
+        .collection {
+            background: rgba(0, 0, 0, 0.7);
+            border-radius: 20px;
+            padding: 30px;
+            margin-top: 30px;
+            backdrop-filter: blur(10px);
+            border: 2px solid rgba(255, 215, 0, 0.3);
+            position: relative;
+        }
+
+        .collection::before {
+            content: '';
+            position: absolute;
+            top: -2px;
+            left: -2px;
+            right: -2px;
+            bottom: -2px;
+            background: linear-gradient(45deg, #ffd700, #ff6b9d, #c44569, #667eea, #ffd700);
+            border-radius: 22px;
+            z-index: -1;
+            animation: borderGlow 3s linear infinite;
+        }
+
+        .collection h2 {
+            margin-bottom: 20px;
+            text-align: center;
+            font-size: 2em;
+        }
+
+        .collection-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+            gap: 20px;
+        }
+
+        .collection-card {
+            background: rgba(0, 0, 0, 0.6);
+            border-radius: 12px;
+            padding: 10px;
+            text-align: center;
+            border: 3px solid rgba(255,255,255,0.3);
+            position: relative;
+            overflow: hidden;
+            transition: all 0.3s ease;
+            backdrop-filter: blur(5px);
+        }
+
+        .collection-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+            border-color: #ffd700;
+        }
+
+        .collection-card img {
+            width: 100%;
+            height: 160px;
+            object-fit: contain;
+            border-radius: 8px;
+            margin-bottom: 8px;
+            padding: 5px;
+        }
+
+        .collection-card .card-label {
+            font-weight: bold;
+            color: #ffd700;
+        }
+
+        /* Style pour le bouton de sauvegarde manuelle */
+        .save-button {
+            position: fixed;
+            bottom: 20px;
+            right: 20px;
+            background: linear-gradient(45deg, #10ac84, #1dd1a1);
+            color: white;
+            border: none;
+            padding: 15px 25px;
+            border-radius: 25px;
+            font-size: 1em;
+            cursor: pointer;
+            font-weight: bold;
+            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.4);
+            transition: all 0.3s ease;
+            z-index: 100;
+        }
+
+        .save-button:hover {
+            transform: scale(1.05);
+            box-shadow: 0 8px 20px rgba(0, 0, 0, 0.5);
+        }
+
+        /* Style pour l'indicateur de sauvegarde */
+        .save-indicator {
+            position: fixed;
+            bottom: 20px;
+            left: 20px;
+            background: rgba(0, 0, 0, 0.7);
+            color: white;
+            padding: 10px 15px;
+            border-radius: 15px;
+            font-size: 0.9em;
+            backdrop-filter: blur(10px);
+            border: 2px solid rgba(255, 255, 255, 0.2);
+            display: none;
+            z-index: 100;
+        }
+
+        .save-indicator.show {
+            display: block;
+            animation: fadeInOut 2s ease;
+        }
+
+        @keyframes fadeInOut {
+            0% { opacity: 0; }
+            20% { opacity: 1; }
+            80% { opacity: 1; }
+            100% { opacity: 0; }
+        }
+
+        /* Style pour le compteur d'alignement */
+        .alignment-counter {
+            background: linear-gradient(45deg, #9b59b6, #8e44ad);
+            padding: 15px 30px;
+            border-radius: 15px;
+            backdrop-filter: blur(10px);
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.3);
+            border: 2px solid rgba(255, 255, 255, 0.2);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+
+        .alignment-counter-label {
+            font-size: 0.9em;
+            opacity: 0.9;
+            margin-bottom: 5px;
+        }
+
+        .alignment-counter-value {
+            font-size: 1.8em;
+            font-weight: bold;
+            color: #e74c3c;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>Jeu de Collection de Cartes</h1>
+            <p class="subtitle">Obtiens un carré (4 cartes identiques) en un seul tirage</p>
+        </header>
+
+        <div class="stats">
+            <div class="stat-box">
+                <h3>Tentatives</h3>
+                <div class="value" id="attempts">0</div>
+            </div>
+            <div class="stat-box">
+                <h3>Carrés gagnés</h3>
+                <div class="value" id="wins">0</div>
+            </div>
+            <div class="stat-box">
+                <h3>Taux de réussite</h3>
+                <div class="value" id="winRate">0%</div>
+            </div>
+            <div class="drop-pool-display">
+                <h3>POOL DE DROP</h3>
+                <div class="drop-pool-value" id="dropPoolValue">0 pièces</div>
+                <div class="drop-pool-info" id="dropPoolInfo">Chance de gagner des pièces</div>
+            </div>
+            <div class="alignment-counter">
+                <h3>BONUS PROGRESSION</h3>
+                <div class="alignment-counter-value" id="alignmentCounterValue">?</div>
+                <div class="alignment-counter-info" id="alignmentCounterInfo">Prochain bonus</div>
+            </div>
+            <div class="last-alignment-display">
+                <h3>DERNIER BONUS</h3>
+                <div class="last-alignment-value" id="lastAlignmentValue">Aucun</div>
+                <div class="last-alignment-info" id="lastAlignmentInfo">Bonus spécial activé</div>
+            </div>
+        </div>
+
+        <div class="boosters">
+            <div class="booster bronze">
+                <img src="https://i.ibb.co/7JsBRrCn/IMG-5885.png" alt="Bronze" class="booster-image">
+                <h2>🥉 Bronze</h2>
+                <div class="info">4 cartes</div>
+                <div class="quantity-selector">
+                    <button class="quantity-btn active" onclick="selectQuantity(this, 'bronze', 1)">1</button>
+                    <button class="quantity-btn" onclick="selectQuantity(this, 'bronze', 5)">5</button>
+                    <button class="quantity-btn" onclick="selectQuantity(this, 'bronze', 10)">10</button>
+                    <button class="quantity-btn" onclick="selectQuantity(this, 'bronze', 30)">30</button>
+                    <button class="quantity-btn" onclick="selectQuantity(this, 'bronze', 50)">50</button>
+                    <button class="quantity-btn" onclick="selectQuantity(this, 'bronze', 100)">100</button>
+                </div>
+                <button onclick="openBooster(4, 'Bronze')">Ouvrir</button>
+            </div>
+            <div class="booster silver">
+                <img src="https://i.ibb.co/20bnDRgP/IMG-5721.png" alt="Silver" class="booster-image">
+                <h2>🥈 Silver</h2>
+                <div class="info">5 cartes</div>
+                <button onclick="openBooster(5, 'Silver')">Ouvrir</button>
+            </div>
+            <div class="booster gold">
+                <img src="https://i.ibb.co/0pjVfMTt/IMG-6165.png" alt="Gold" class="booster-image">
+                <h2>🥇 Gold</h2>
+                <div class="info">7 cartes</div>
+                <button onclick="openBooster(7, 'Gold')">Ouvrir</button>
+            </div>
+        </div>
+
+        <div class="collection">
+            <h2>📚 Galerie des 21 Cartes</h2>
+            <div class="collection-grid" id="collectionGrid"></div>
+        </div>
+    </div>
+
+    <div class="cards-reveal" id="cardsReveal">
+        <button class="close-reveal" onclick="closeReveal()">Fermer</button>
+        <div class="reveal-content">
+            <div class="result-message" id="resultMessage"></div>
+            <div class="cards-container" id="cardsContainer"></div>
+        </div>
+    </div>
+
+    <!-- Bouton de sauvegarde manuelle -->
+    <button class="save-button" onclick="manualSave()">💾 Sauvegarder</button>
+    
+    <!-- Indicateur de sauvegarde -->
+    <div class="save-indicator" id="saveIndicator">Sauvegarde effectuée</div>
+
+    <script>
+        const TOTAL_CARD_TYPES = 21;
+        const cardImages = {
+            1: 'https://i.ibb.co/r2kRpBqz/IMG-6174.png',
+            2: 'https://i.ibb.co/TMdW3dZq/IMG-6173.png',
+            3: 'https://i.ibb.co/DgKGdkx4/IMG-6172.png',
+            4: 'https://i.ibb.co/k2tByVgX/IMG-6171.png',
+            5: 'https://i.ibb.co/4RJ0TCYh/IMG-6170.png',
+            6: 'https://i.ibb.co/ymyr0ws7/IMG-6169.png',
+            7: 'https://i.ibb.co/Dg4FYW5L/IMG-6168.png',
+            8: 'https://i.ibb.co/PzPSBNW0/IMG-6167.png',
+            9: 'https://i.ibb.co/F4WrT6Sb/IMG-6166.png',
+            10: 'https://i.ibb.co/0pjVfMTt/IMG-6165.png',
+            11: 'https://i.ibb.co/hRtd2JHD/IMG-6164.png',
+            12: 'https://i.ibb.co/hxXnkQh7/IMG-5861.png',
+            13: 'https://i.ibb.co/kszc1xVw/IMG-5858.png',
+            14: 'https://i.ibb.co/ZRFjM91q/IMG-5895.png',
+            15: 'https://i.ibb.co/C5M6DHcS/IMG-7356-Photoroom.png',
+            16: 'https://i.ibb.co/JwCygB4T/IMG-6460-Photoroom.png',
+            17: 'https://i.ibb.co/2YpQxB1Y/IMG-6620.png',
+            18: 'https://i.ibb.co/qLZ05xGV/IMG-6461-Photoroom.png',
+            19: 'https://i.ibb.co/qL1chxtM/IMG-5898.png',
+            20: 'https://i.ibb.co/V0zNBRgq/IMG-6834.png',
+            21: 'https://i.ibb.co/whJNdnxZ/symbol1.png'
+        };
+
+        // Probabilités de carré par type de booster (environ 1 chance sur 1 million)
+        const boosterChances = {
+            bronze: 0.000001,  // 0.0001% de chance (1 sur 1 million)
+            silver: 0.000005,  // 0.0005% de chance
+            gold: 0.00001      // 0.001% de chance
+        };
+
+        // Variables pour le système de drop
+        let dropPool = 0; // Nombre de pièces dans le pool de drop
+        let dropCounter = 0; // Compteur pour ajouter des pièces au pool tous les 10 tours
+
+        // Variables pour le système d'alignement automatique
+        let alignmentCounter = 0; // Compteur pour l'alignement automatique
+        const alignmentThreshold = 2500; // Seuil d'alignement (tous les 2500 tours)
+        const alignmentCards = [11, 21, 18, 16, 15, 2, 14]; // Cartes qui peuvent s'aligner
+        let lastAlignmentCard = null; // Dernière carte alignée
+
+        let attempts = 0;
+        let wins = 0;
+        let quantities = {
+            bronze: 1,
+            silver: 1,
+            gold: 1
+        };
+
+        // Fonction pour sauvegarder les données du jeu
+        function saveGameData() {
+            const gameData = {
+                attempts: attempts,
+                wins: wins,
+                dropPool: dropPool,
+                dropCounter: dropCounter,
+                alignmentCounter: alignmentCounter,
+                lastAlignmentCard: lastAlignmentCard,
+                quantities: quantities
+            };
+            
+            localStorage.setItem('cardGameSave', JSON.stringify(gameData));
+            console.log('Sauvegarde effectuée:', gameData);
+            
+            // Afficher l'indicateur de sauvegarde
+            showSaveIndicator();
+        }
+
+        // Fonction pour charger les données du jeu
+        function loadGameData() {
+            const savedData = localStorage.getItem('cardGameSave');
+            
+            if (savedData) {
+                try {
+                    const gameData = JSON.parse(savedData);
+                    
+                    attempts = gameData.attempts || 0;
+                    wins = gameData.wins || 0;
+                    dropPool = gameData.dropPool || 0;
+                    dropCounter = gameData.dropCounter || 0;
+                    alignmentCounter = gameData.alignmentCounter || 0;
+                    lastAlignmentCard = gameData.lastAlignmentCard || null;
+                    quantities = gameData.quantities || {
+                        bronze: 1,
+                        silver: 1,
+                        gold: 1
+                    };
+                    
+                    console.log('Données chargées:', gameData);
+                    return true;
+                } catch (error) {
+                    console.error('Erreur lors du chargement des données:', error);
+                    return false;
+                }
+            }
+            return false;
+        }
+
+        // Fonction pour afficher l'indicateur de sauvegarde
+        function showSaveIndicator() {
+            const indicator = document.getElementById('saveIndicator');
+            indicator.classList.remove('show');
+            void indicator.offsetWidth; // Réinitialise l'animation
+            indicator.classList.add('show');
+        }
+
+        // Fonction pour sauvegarde manuelle
+        function manualSave() {
+            saveGameData();
+        }
+
+        // Fonction pour mettre à jour l'affichage du pool de drop
+        function updateDropPoolDisplay() {
+            document.getElementById('dropPoolValue').textContent = `${dropPool} pièces`;
+            
+            if (dropPool > 0) {
+                document.getElementById('dropPoolInfo').textContent = `Chance de gagner ${dropPool} pièces`;
+            } else {
+                document.getElementById('dropPoolInfo').textContent = `Chance de gagner des pièces`;
+            }
+        }
+
+        // Fonction pour mettre à jour l'affichage du compteur d'alignement
+        function updateAlignmentCounterDisplay() {
+            const remaining = alignmentThreshold - alignmentCounter;
+            
+            // Cacher la valeur exacte aux utilisateurs
+            if (remaining <= 100) {
+                document.getElementById('alignmentCounterValue').textContent = `${remaining}`;
+            } else {
+                document.getElementById('alignmentCounterValue').textContent = `?`;
+            }
+            
+            if (remaining <= 0) {
+                document.getElementById('alignmentCounterInfo').textContent = `BONUS DISPONIBLE !`;
+            } else if (remaining <= 100) {
+                document.getElementById('alignmentCounterInfo').textContent = `Prochain bonus proche`;
+            } else {
+                document.getElementById('alignmentCounterInfo').textContent = `Prochain bonus`;
+            }
+        }
+
+        // Fonction pour mettre à jour l'affichage du dernier alignement
+        function updateLastAlignmentDisplay() {
+            if (lastAlignmentCard) {
+                document.getElementById('lastAlignmentValue').textContent = `Carte ${lastAlignmentCard}`;
+                document.getElementById('lastAlignmentInfo').textContent = `Bonus spécial activé`;
+            } else {
+                document.getElementById('lastAlignmentValue').textContent = `Aucun`;
+                document.getElementById('lastAlignmentInfo').textContent = `Bonus spécial activé`;
+            }
+        }
+
+        // Fonction pour gérer le système de drop
+        function handleDropSystem() {
+            // Incrémenter le compteur de drop
+            dropCounter++;
+            
+            // Ajouter 1 pièce au pool tous les 10 tours
+            if (dropCounter % 10 === 0) {
+                dropPool += 1;
+                updateDropPoolDisplay();
+            }
+            
+            // Chance de 1 sur 2500 de gagner les pièces du pool
+            if (dropPool > 0 && Math.random() < 1/2500) {
+                const coinsWon = dropPool;
+                
+                // Afficher l'animation de drop
+                showDropAnimation(coinsWon);
+                
+                // Réinitialiser le pool
+                dropPool = 0;
+                updateDropPoolDisplay();
+                
+                // Sauvegarder après un drop gagné
+                saveGameData();
+                
+                return true;
+            }
+            
+            return false;
+        }
+
+        // Fonction pour afficher l'animation de drop
+        function showDropAnimation(coinsWon) {
+            const dropAnimation = document.createElement('div');
+            dropAnimation.className = 'drop-animation';
+            
+            dropAnimation.innerHTML = `
+                <div class="drop-popup">
+                    <div class="drop-popup-icon">
+                        <img src="https://i.ibb.co/7JsBRrCn/IMG-5885.png" alt="Pièces" style="width: 80px; height: 80px;">
+                    </div>
+                    <div class="drop-popup-title">DROP GAGNÉ !</div>
+                    <div class="drop-popup-description">Vous avez remporté ${coinsWon} pièces du pool de drop !</div>
+                    <button class="drop-close">CONTINUER</button>
+                </div>
+            `;
+            
+            document.body.appendChild(dropAnimation);
+            
+            const closeButton = dropAnimation.querySelector('.drop-close');
+            closeButton.addEventListener('click', () => {
+                document.body.removeChild(dropAnimation);
+            });
+            
+            setTimeout(() => {
+                if (document.body.contains(dropAnimation)) {
+                    document.body.removeChild(dropAnimation);
+                }
+            }, 5000);
+        }
+
+        // Fonction pour gérer l'alignement automatique
+        function handleAlignmentSystem() {
+            // Incrémenter le compteur d'alignement
+            alignmentCounter++;
+            updateAlignmentCounterDisplay();
+            
+            // Vérifier si on a atteint le seuil d'alignement
+            if (alignmentCounter >= alignmentThreshold) {
+                // Réinitialiser le compteur
+                alignmentCounter = 0;
+                updateAlignmentCounterDisplay();
+                
+                // Choisir une carte au hasard parmi celles qui peuvent s'aligner
+                lastAlignmentCard = alignmentCards[Math.floor(Math.random() * alignmentCards.length)];
+                updateLastAlignmentDisplay();
+                
+                // Sauvegarder après un alignement
+                saveGameData();
+                
+                // Retourner la carte alignée
+                return lastAlignmentCard;
+            }
+            
+            return null;
+        }
+
+        function selectQuantity(btn, boosterType, quantity) {
+            const parent = btn.parentElement;
+            parent.querySelectorAll('.quantity-btn').forEach(b => b.classList.remove('active'));
+            btn.classList.add('active');
+            quantities[boosterType] = quantity;
+            
+            // Sauvegarder après changement de quantité
+            saveGameData();
+        }
+
+        function drawCards(count, boosterType) {
+            const cards = [];
+            const quadChance = boosterChances[boosterType];
+            
+            // Vérifier si on doit forcer un carré selon la probabilité du booster
+            const forceQuad = Math.random() < quadChance;
+            
+            // Vérifier si une carte doit s'aligner automatiquement
+            const alignmentCard = handleAlignmentSystem();
+            let hasAlignment = false;
+            
+            if (forceQuad) {
+                // Forcer un carré (4 cartes identiques)
+                const quadCard = Math.floor(Math.random() * TOTAL_CARD_TYPES) + 1;
+                
+                // Ajouter 4 cartes identiques
+                for (let i = 0; i < 4; i++) {
+                    cards.push(quadCard);
+                }
+                
+                // Ajouter le reste des cartes aléatoirement
+                for (let i = 4; i < count; i++) {
+                    const cardNum = Math.floor(Math.random() * TOTAL_CARD_TYPES) + 1;
+                    cards.push(cardNum);
+                }
+                
+                // Mélanger les cartes
+                return { cards: shuffleArray(cards), alignment: null };
+            } else if (alignmentCard) {
+                // Une carte s'aligne automatiquement
+                hasAlignment = true;
+                
+                // Ajouter 4 cartes identiques (la carte alignée)
+                for (let i = 0; i < 4; i++) {
+                    cards.push(alignmentCard);
+                }
+                
+                // Ajouter le reste des cartes aléatoirement
+                for (let i = 4; i < count; i++) {
+                    const cardNum = Math.floor(Math.random() * TOTAL_CARD_TYPES) + 1;
+                    cards.push(cardNum);
+                }
+                
+                // Mélanger les cartes
+                return { cards: shuffleArray(cards), alignment: alignmentCard };
+            } else {
+                // Tirage normal - très peu de chance d'obtenir un carré naturellement
+                for (let i = 0; i < count; i++) {
+                    const cardNum = Math.floor(Math.random() * TOTAL_CARD_TYPES) + 1;
+                    cards.push(cardNum);
+                }
+                
+                // Vérifier si on a accidentellement obtenu un carré
+                const hasQuad = checkForQuad(cards);
+                
+                // Si on a un carré par accident, on refait le tirage pour éviter cela
+                if (hasQuad) {
+                    return drawCards(count, boosterType);
+                }
+                
+                return { cards, alignment: null };
+            }
+        }
+
+        function shuffleArray(array) {
+            const newArray = [...array];
+            for (let i = newArray.length - 1; i > 0; i--) {
+                const j = Math.floor(Math.random() * (i + 1));
+                [newArray[i], newArray[j]] = [newArray[j], newArray[i]];
+            }
+            return newArray;
+        }
+
+        function checkForQuad(cards) {
+            const cardCounts = {};
+            cards.forEach(card => {
+                cardCounts[card] = (cardCounts[card] || 0) + 1;
+            });
+            
+            for (const [card, count] of Object.entries(cardCounts)) {
+                if (count >= 4) {
+                    return parseInt(card);
+                }
+            }
+            return null;
+        }
+
+        function openBooster(cardCount, boosterName) {
+            const boosterType = boosterName.toLowerCase();
+            const quantity = quantities[boosterType] || 1;
+            
+            if (quantity === 1) {
+                // Tirage simple - affiche les cartes
+                attempts++;
+                
+                // Gérer le système de drop
+                const dropWon = handleDropSystem();
+                
+                const result = drawCards(cardCount, boosterType);
+                const cards = result.cards;
+                const alignmentCard = result.alignment;
+                const quadCard = checkForQuad(cards);
+                
+                if (quadCard || alignmentCard) {
+                    wins++;
+                }
+                
+                updateStats();
+                // Sauvegarder après un tirage
+                saveGameData();
+                // Passer l'information du drop et de l'alignement à l'affichage
+                displaySingleDraw(cards, quadCard, boosterName, dropWon, alignmentCard);
+            } else {
+                // Tirages multiples - affiche tous les tirages
+                let totalWins = 0;
+                let allDraws = [];
+                let dropWon = false;
+                let alignmentWon = false;
+                
+                for (let i = 0; i < quantity; i++) {
+                    attempts++;
+                    
+                    // Gérer le système de drop (seulement une fois par lot de tirages)
+                    if (!dropWon) {
+                        dropWon = handleDropSystem();
+                    }
+                    
+                    const result = drawCards(cardCount, boosterType);
+                    const cards = result.cards;
+                    const alignmentCard = result.alignment;
+                    const quadCard = checkForQuad(cards);
+                    
+                    if (quadCard || alignmentCard) {
+                        wins++;
+                        totalWins++;
+                    }
+                    
+                    allDraws.push({ cards, quadCard, alignmentCard });
+                    
+                    // Marquer si un alignement a eu lieu
+                    if (alignmentCard) {
+                        alignmentWon = true;
+                    }
+                }
+                
+                updateStats();
+                // Sauvegarder après des tirages multiples
+                saveGameData();
+                // Passer l'information du drop et de l'alignement à l'affichage
+                displayMultipleDraws(quantity, totalWins, allDraws, boosterName, dropWon, alignmentWon);
+            }
+        }
+
+        function displaySingleDraw(cards, quadCard, boosterName, dropWon, alignmentCard) {
+            const container = document.getElementById('cardsContainer');
+            const resultMessage = document.getElementById('resultMessage');
+            container.innerHTML = '';
+
+            if (quadCard) {
+                resultMessage.textContent = `CARRÉ GAGNÉ !`;
+                resultMessage.className = 'result-message win';
+            } else if (alignmentCard) {
+                resultMessage.textContent = `BONUS SPÉCIAL !`;
+                resultMessage.className = 'result-message win';
+            } else if (dropWon) {
+                resultMessage.textContent = `DROP GAGNÉ !`;
+                resultMessage.className = 'result-message win';
+            } else {
+                resultMessage.textContent = `Pas de carré cette fois...`;
+                resultMessage.className = 'result-message lose';
+            }
+
+            const cardCounts = {};
+            cards.forEach(card => {
+                cardCounts[card] = (cardCounts[card] || 0) + 1;
+            });
+
+            cards.forEach((cardNum, index) => {
+                setTimeout(() => {
+                    const cardDiv = document.createElement('div');
+                    cardDiv.className = 'card';
+                    if (quadCard === cardNum || alignmentCard === cardNum) {
+                        cardDiv.classList.add('is-quad');
+                    }
+                    
+                    cardDiv.innerHTML = `
+                        <img src="${cardImages[cardNum]}" alt="Carte ${cardNum}">
+                        <div class="card-count">${cardCounts[cardNum]}x</div>
+                    `;
+                    container.appendChild(cardDiv);
+                }, index * 100);
+            });
+
+            document.getElementById('cardsReveal').classList.add('active');
+        }
+
+        function displayMultipleDraws(quantity, totalWins, allDraws, boosterName, dropWon, alignmentWon) {
+            const container = document.getElementById('cardsContainer');
+            const resultMessage = document.getElementById('resultMessage');
+            container.innerHTML = '';
+
+            if (totalWins > 0) {
+                resultMessage.textContent = `🎉 ${totalWins} CARRÉ${totalWins > 1 ? 'S' : ''} sur ${quantity} tirages !`;
+                resultMessage.className = 'result-message win';
+            } else if (dropWon) {
+                resultMessage.textContent = `DROP GAGNÉ sur ${quantity} tirages !`;
+                resultMessage.className = 'result-message win';
+            } else if (alignmentWon) {
+                resultMessage.textContent = `BONUS SPÉCIAL sur ${quantity} tirages !`;
+                resultMessage.className = 'result-message win';
+            } else {
+                resultMessage.textContent = `Pas de carré sur ${quantity} tirages...`;
+                resultMessage.className = 'result-message lose';
+            }
+
+            const summaryDiv = document.createElement('div');
+            summaryDiv.style.cssText = `
+                background: rgba(0, 0, 0, 0.7);
+                padding: 20px 30px;
+                border-radius: 20px;
+                backdrop-filter: blur(10px);
+                border: 2px solid rgba(255, 215, 0, 0.3);
+                font-size: 1.2em;
+                line-height: 1.8;
+                max-width: 800px;
+                margin: 0 auto 30px auto;
+                display: flex;
+                gap: 30px;
+                justify-content: center;
+                flex-wrap: wrap;
+            `;
+            
+            summaryDiv.innerHTML = `
+                <div style="color: #10ac84;">
+                    ✅ Carrés: <strong>${totalWins}</strong>
+                </div>
+                <div style="color: #ff6b9d;">
+                    ❌ Échecs: <strong>${quantity - totalWins}</strong>
+                </div>
+                <div style="color: #ffd700;">
+                    📈 Réussite: <strong>${((totalWins / quantity) * 100).toFixed(6)}%</strong>
+                </div>
+                ${dropWon ? '<div style="color: #f39c12;">💰 DROP: <strong>GAGNÉ</strong></div>' : ''}
+                ${alignmentWon ? '<div style="color: #9b59b6;">✨ BONUS: <strong>GAGNÉ</strong></div>' : ''}
+            `;
+            
+            container.appendChild(summaryDiv);
+
+            // Affichage de tous les tirages
+            const allDrawsContainer = document.createElement('div');
+            allDrawsContainer.style.cssText = `
+                display: flex;
+                flex-direction: column;
+                gap: 25px;
+                margin-top: 20px;
+            `;
+
+            allDraws.forEach((draw, drawIndex) => {
+                setTimeout(() => {
+                    const drawDiv = document.createElement('div');
+                    drawDiv.style.cssText = `
+                        background: rgba(0, 0, 0, 0.6);
+                        padding: 20px;
+                        border-radius: 15px;
+                        border: 2px solid ${draw.quadCard || draw.alignmentCard ? 'rgba(255, 215, 0, 0.5)' : 'rgba(255, 255, 255, 0.2)'};
+                        backdrop-filter: blur(5px);
+                    `;
+
+                    const drawTitle = document.createElement('div');
+                    drawTitle.style.cssText = `
+                        font-size: 1.3em;
+                        font-weight: bold;
+                        margin-bottom: 15px;
+                        color: ${draw.quadCard || draw.alignmentCard ? '#ffd700' : '#fff'};
+                        text-align: center;
+                    `;
+                    
+                    let titleText = `Tirage #${drawIndex + 1}`;
+                    if (draw.quadCard) {
+                        titleText = `🏆 Tirage #${drawIndex + 1} - CARRÉ !`;
+                    } else if (draw.alignmentCard) {
+                        titleText = `✨ Tirage #${drawIndex + 1} - BONUS SPÉCIAL !`;
+                    }
+                    
+                    drawTitle.textContent = titleText;
+                    drawDiv.appendChild(drawTitle);
+
+                    const cardsRow = document.createElement('div');
+                    cardsRow.style.cssText = `
+                        display: flex;
+                        gap: 15px;
+                        flex-wrap: wrap;
+                        justify-content: center;
+                    `;
+
+                    const cardCounts = {};
+                    draw.cards.forEach(card => {
+                        cardCounts[card] = (cardCounts[card] || 0) + 1;
+                    });
+
+                    draw.cards.forEach((cardNum, cardIndex) => {
+                        setTimeout(() => {
+                            const cardDiv = document.createElement('div');
+                            cardDiv.className = 'card';
+                            if (draw.quadCard === cardNum || draw.alignmentCard === cardNum) {
+                                cardDiv.classList.add('is-quad');
+                            }
+                            
+                            cardDiv.innerHTML = `
+                                <img src="${cardImages[cardNum]}" alt="Carte ${cardNum}">
+                                <div class="card-count">${cardCounts[cardNum]}x</div>
+                            `;
+                            cardsRow.appendChild(cardDiv);
+                        }, cardIndex * 50);
+                    });
+
+                    drawDiv.appendChild(cardsRow);
+                    allDrawsContainer.appendChild(drawDiv);
+                }, drawIndex * 200);
+            });
+
+            container.appendChild(allDrawsContainer);
+            document.getElementById('cardsReveal').classList.add('active');
+        }
+
+        function closeReveal() {
+            document.getElementById('cardsReveal').classList.remove('active');
+        }
+
+        function updateStats() {
+            document.getElementById('attempts').textContent = attempts;
+            document.getElementById('wins').textContent = wins;
+            const winRate = attempts > 0 ? ((wins / attempts) * 100).toFixed(6) : 0;
+            document.getElementById('winRate').textContent = winRate + '%';
+        }
+
+        function displayAllCards() {
+            const grid = document.getElementById('collectionGrid');
+            grid.innerHTML = '';
+
+            for (let i = 1; i <= TOTAL_CARD_TYPES; i++) {
+                const cardDiv = document.createElement('div');
+                cardDiv.className = 'collection-card';
+                
+                cardDiv.innerHTML = `
+                    <img src="${cardImages[i]}" alt="Carte ${i}">
+                    <div class="card-label">Carte ${i}</div>
+                `;
+                
+                grid.appendChild(cardDiv);
+            }
+        }
+
+        // Initialisation du jeu
+        function initGame() {
+            // Charger les données sauvegardées
+            const dataLoaded = loadGameData();
+            
+            // Initialiser l'affichage
+            updateDropPoolDisplay();
+            updateAlignmentCounterDisplay();
+            updateLastAlignmentDisplay();
+            updateStats();
+            displayAllCards();
+            
+            // Restaurer les sélections de quantité
+            if (dataLoaded) {
+                // Restaurer les boutons de quantité active pour le booster bronze
+                const bronzeQuantityBtns = document.querySelectorAll('.booster.bronze .quantity-btn');
+                bronzeQuantityBtns.forEach(btn => {
+                    const quantity = parseInt(btn.textContent);
+                    if (quantity === quantities.bronze) {
+                        btn.classList.add('active');
+                    } else {
+                        btn.classList.remove('active');
+                    }
+                });
+            }
+            
+            // Sauvegarde automatique toutes les 30 secondes
+            setInterval(saveGameData, 30000);
+            
+            // Sauvegarde automatique lors de la fermeture de la page
+            window.addEventListener('beforeunload', saveGameData);
+            
+            console.log('Jeu initialisé avec sauvegarde automatique');
+        }
+
+        // Démarrer le jeu
+        initGame();
+    </script>
+</body>
+</html>
