@@ -1,1565 +1,2734 @@
-
 <!DOCTYPE html>
 <html lang="fr">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Jeu de Collection de Cartes</title>
+    <title>Course du Serpent - Mode Infini Auto</title>
+    <script src="https://cdn.tailwindcss.com"></script>
     <style>
-        * {
+        @import url('https://fonts.googleapis.com/css2?family=Fredoka+One&family=Nunito:wght@400;700&display=swap');
+
+        body { 
+            font-family: 'Nunito', sans-serif; 
+            background-color: #f0fdf4; 
+            overflow: hidden; 
+            touch-action: none; 
+            user-select: none; 
             margin: 0;
             padding: 0;
-            box-sizing: border-box;
+        }
+        
+        h1, h2, h3, button, input, label { 
+            font-family: 'Fredoka One', cursive; 
         }
 
-        body {
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-            background: linear-gradient(135deg, #1a2a6c, #b21f1f, #fdbb2d);
-            min-height: 100vh;
-            padding: 20px;
-            color: #fff;
-            position: relative;
-            overflow-x: hidden;
+        #setup-layer { 
+            position: absolute; 
+            top: 20px; 
+            left: 20px; 
+            z-index: 100; 
+            display: flex; 
+            flex-direction: column; 
+            gap: 10px; 
+            transition: opacity 0.3s ease; 
+        }
+        
+        #draggable-panel { 
+            width: 420px; 
+            background: rgba(255, 255, 255, 0.98); 
+            backdrop-filter: blur(10px); 
+            border-radius: 20px; 
+            box-shadow: 0 10px 40px rgba(0,0,0,0.25), 0 0 0 1px rgba(0,0,0,0.05); 
+            overflow: hidden; 
+            display: flex; 
+            flex-direction: column; 
+            max-height: 90vh; 
+        }
+        
+        .panel-header { 
+            background: linear-gradient(135deg, #16a34a, #22c55e); 
+            color: white; 
+            padding: 14px 18px; 
+            display: flex; 
+            justify-content: space-between; 
+            align-items: center; 
+            cursor: move; 
+            flex-shrink: 0; 
+        }
+        
+        .panel-content { 
+            padding: 18px; 
+            overflow-y: auto; 
+            flex-grow: 1; 
         }
 
-        body::before {
-            content: '';
-            position: fixed;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            background: rgba(0, 0, 0, 0.4);
-            z-index: -1;
+        #game-container { 
+            position: relative; 
+            width: 100vw; 
+            height: 100vh; 
+            display: flex; 
+            flex-direction: column; 
+            align-items: center; 
+            justify-content: center; 
+            background: #f0fdf4; 
+        }
+        
+        canvas { 
+            background: transparent; 
+            max-width: 100%; 
+            max-height: 100vh; 
+            cursor: default; 
+        }
+        
+        canvas.draggable { 
+            cursor: grab; 
+        } 
+        
+        canvas.dragging { 
+            cursor: grabbing; 
         }
 
-        .container {
-            max-width: 1400px;
-            margin: 0 auto;
-            position: relative;
+        canvas.creating-path { 
+            cursor: crosshair; 
         }
 
-        header {
-            text-align: center;
-            margin-bottom: 30px;
-            background: rgba(0, 0, 0, 0.7);
-            padding: 20px;
-            border-radius: 20px;
-            backdrop-filter: blur(10px);
-            position: relative;
-            border: 2px solid rgba(255, 215, 0, 0.3);
+        .btn { 
+            padding: 0.6rem 1.2rem; 
+            border-radius: 12px; 
+            font-size: 1rem; 
+            cursor: pointer; 
+            border: none; 
+            color: white; 
+            text-transform: uppercase; 
+            font-weight: bold; 
+            transition: all 0.2s ease; 
+        }
+        
+        .btn:hover { 
+            transform: translateY(-2px); 
+            box-shadow: 0 4px 12px rgba(0,0,0,0.15); 
+        }
+        
+        .btn:active { 
+            transform: scale(0.97); 
+        }
+        
+        .btn-start { 
+            background: linear-gradient(135deg, #16a34a, #22c55e); 
+        }
+        
+        .btn-reset { 
+            background: linear-gradient(135deg, #dc2626, #ef4444); 
+        }
+        
+        .btn-connect { 
+            background: linear-gradient(135deg, #2563eb, #3b82f6); 
         }
 
-        header::before {
-            content: '';
-            position: absolute;
-            top: -2px;
-            left: -2px;
-            right: -2px;
-            bottom: -2px;
-            background: linear-gradient(45deg, #ffd700, #ff6b9d, #c44569, #667eea, #ffd700);
-            border-radius: 22px;
-            z-index: -1;
-            animation: borderGlow 3s linear infinite;
+        #winner-overlay { 
+            position: absolute; 
+            top: 0; 
+            left: 0; 
+            width: 100%; 
+            height: 100%; 
+            background: rgba(0,0,0,0.9); 
+            display: none; 
+            flex-direction: column; 
+            align-items: center; 
+            justify-content: center; 
+            z-index: 50; 
+            color: white; 
+            text-align: center; 
+            backdrop-filter: blur(8px); 
+            animation: fadeIn 0.5s; 
+        }
+        
+        @keyframes fadeIn { 
+            from { opacity: 0; } 
+            to { opacity: 1; } 
         }
 
-        @keyframes borderGlow {
-            0% { filter: hue-rotate(0deg); }
-            100% { filter: hue-rotate(360deg); }
+        .player-tag { 
+            background: rgba(255, 255, 255, 0.95); 
+            color: #333; 
+            padding: 16px 32px; 
+            border-radius: 20px; 
+            font-weight: bold; 
+            margin-top: 12px; 
+            font-size: 2.5rem; 
+            display: inline-block; 
+            box-shadow: 0 0 30px rgba(255,255,255,0.7); 
+            border: 3px solid currentColor; 
+        }
+        
+        .name-badge { 
+            display: flex; 
+            align-items: center; 
+            background: white; 
+            padding: 8px 12px; 
+            border-radius: 10px; 
+            font-size: 0.9rem; 
+            font-weight: bold; 
+            color: #4b5563; 
+            animation: popIn 0.3s ease-out; 
+            margin-bottom: 6px; 
+            border-left-width: 6px; 
+            box-shadow: 0 2px 4px rgba(0,0,0,0.05); 
+        }
+        
+        @keyframes popIn { 
+            0% { transform: scale(0); opacity: 0; } 
+            100% { transform: scale(1); opacity: 1; } 
         }
 
-        h1 {
-            font-size: 2.5em;
-            text-shadow: 2px 2px 4px rgba(0,0,0,0.3);
-            margin-bottom: 10px;
+        #leaderboard { 
+            position: absolute; 
+            top: 20px; 
+            right: 20px; 
+            background: rgba(255, 255, 255, 0.98); 
+            padding: 18px; 
+            border-radius: 16px; 
+            font-size: 0.95rem; 
+            box-shadow: 0 10px 35px rgba(0,0,0,0.15); 
+            max-height: 320px; 
+            width: 260px; 
+            display: none; 
+            z-index: 20; 
+            border: 2px solid #e5e7eb; 
+        }
+        
+        @media (min-width: 768px) { 
+            #leaderboard { display: block; } 
+        }
+        
+        .status-indicator { 
+            width: 12px; 
+            height: 12px; 
+            border-radius: 50%; 
+            display: inline-block; 
+            margin-right: 6px; 
+        }
+        
+        .status-off { 
+            background: #ef4444; 
+            box-shadow: 0 0 8px #ef4444; 
+        }
+        
+        .status-on { 
+            background: #22c55e; 
+            box-shadow: 0 0 8px #22c55e; 
         }
 
-        .subtitle {
-            font-size: 1.2em;
-            opacity: 0.9;
+        .pulse-btn { 
+            animation: pulse-green 2s infinite; 
+        }
+        
+        @keyframes pulse-green { 
+            0% { box-shadow: 0 0 0 0 rgba(22, 163, 74, 0.7); } 
+            70% { box-shadow: 0 0 0 12px rgba(22, 163, 74, 0); } 
+            100% { box-shadow: 0 0 0 0 rgba(22, 163, 74, 0); } 
+        }
+        
+        #queue-bar { 
+            background: #fff7ed; 
+            border: 2px dashed #f97316; 
+            color: #c2410c; 
+            padding: 10px; 
+            border-radius: 10px; 
+            margin-bottom: 12px; 
+            font-size: 0.85rem; 
+            font-weight: bold; 
+            text-align: center; 
+            display: none; 
+        }
+        
+        .custom-track-section { 
+            background: #eef2ff; 
+            border: 2px solid #c7d2fe; 
+            border-radius: 12px; 
+            padding: 12px; 
+            margin-top: 12px; 
+        }
+        
+        .background-section { 
+            background: #fef3c7; 
+            border: 2px solid #fde68a; 
+            border-radius: 12px; 
+            padding: 12px; 
+            margin-top: 12px; 
         }
 
-        .stats {
-            display: flex;
-            justify-content: center;
-            gap: 30px;
-            margin: 20px 0;
-            flex-wrap: wrap;
-        }
-
-        .stat-box {
-            background: linear-gradient(45deg, #ff6b9d, #c44569);
-            padding: 15px 30px;
-            border-radius: 15px;
-            backdrop-filter: blur(10px);
-            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.3);
-            border: 2px solid rgba(255, 255, 255, 0.2);
-        }
-
-        .stat-box h3 {
-            font-size: 0.9em;
-            opacity: 0.9;
-            margin-bottom: 5px;
-        }
-
-        .stat-box .value {
-            font-size: 1.8em;
-            font-weight: bold;
-        }
-
-        /* Affichage du pool de drop */
-        .drop-pool-display {
-            background: linear-gradient(45deg, #f39c12, #e67e22);
-            padding: 15px 30px;
-            border-radius: 15px;
-            backdrop-filter: blur(10px);
-            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.3);
-            border: 2px solid rgba(255, 255, 255, 0.2);
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-        }
-
-        .drop-pool-label {
-            font-size: 0.9em;
-            opacity: 0.9;
-            margin-bottom: 5px;
-        }
-
-        .drop-pool-value {
-            font-size: 1.8em;
-            font-weight: bold;
-            color: #feca57;
-        }
-
-        /* Affichage du dernier alignement */
-        .last-alignment-display {
-            background: linear-gradient(45deg, #9b59b6, #8e44ad);
-            padding: 15px 30px;
-            border-radius: 15px;
-            backdrop-filter: blur(10px);
-            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.3);
-            border: 2px solid rgba(255, 255, 255, 0.2);
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            position: relative;
-            overflow: hidden;
-        }
-
-        .last-alignment-label {
-            font-size: 0.9em;
-            opacity: 0.9;
-            margin-bottom: 5px;
-        }
-
-        .last-alignment-value {
-            font-size: 1.8em;
-            font-weight: bold;
-            color: #e74c3c;
-        }
-
-        .boosters {
-            display: flex;
-            justify-content: center;
-            gap: 20px;
-            margin: 40px 0;
-            flex-wrap: wrap;
-        }
-
-        .booster {
-            background: rgba(0, 0, 0, 0.7);
-            border-radius: 15px;
-            padding: 25px;
-            text-align: center;
-            backdrop-filter: blur(10px);
-            border: 3px solid rgba(255,255,255,0.3);
-            transition: transform 0.3s, box-shadow 0.3s;
-            cursor: pointer;
-            position: relative;
-        }
-
-        .booster.bronze {
-            min-width: 200px;
-        }
-
-        .booster.silver, .booster.gold {
-            min-width: 160px;
-        }
-
-        .booster::before {
-            content: '';
-            position: absolute;
-            top: -3px;
-            left: -3px;
-            right: -3px;
-            bottom: -3px;
-            border-radius: 17px;
-            z-index: -1;
-            opacity: 0;
-            transition: opacity 0.3s;
-        }
-
-        .booster.bronze::before {
-            background: linear-gradient(45deg, #cd7f32, #e5a962);
-            animation: bronzeGlow 2s linear infinite;
-        }
-
-        .booster.silver::before {
-            background: linear-gradient(45deg, #c0c0c0, #e8e8e8);
-            animation: silverGlow 2s linear infinite;
-        }
-
-        .booster.gold::before {
-            background: linear-gradient(45deg, #ffd700, #ffed4e);
-            animation: goldGlow 2s linear infinite;
-        }
-
-        @keyframes bronzeGlow {
-            0%, 100% { opacity: 0.5; }
-            50% { opacity: 0.8; }
-        }
-
-        @keyframes silverGlow {
-            0%, 100% { opacity: 0.5; }
-            50% { opacity: 0.8; }
-        }
-
-        @keyframes goldGlow {
-            0%, 100% { opacity: 0.6; }
-            50% { opacity: 1; }
-        }
-
-        .booster:hover {
-            transform: translateY(-5px) scale(1.02);
-            box-shadow: 0 15px 40px rgba(0,0,0,0.5);
-        }
-
-        .booster:hover::before {
-            opacity: 1;
-        }
-
-        .booster h2 {
-            margin-bottom: 10px;
-            font-size: 1.5em;
-        }
-
-        .booster-image {
-            width: 80px;
-            height: 80px;
-            margin: 10px auto;
-            border-radius: 10px;
-            object-fit: contain;
-            background: rgba(255, 255, 255, 0.1);
-            padding: 5px;
-        }
-
-        .booster .info {
-            opacity: 0.9;
-            margin: 10px 0;
-        }
-
-        .booster button {
-            background: linear-gradient(45deg, #ff6b9d, #c44569);
-            color: white;
-            border: none;
-            padding: 15px 35px;
-            border-radius: 25px;
-            font-size: 1.2em;
-            cursor: pointer;
-            margin-top: 15px;
-            transition: all 0.3s ease;
-            font-weight: bold;
-            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.4);
-            text-transform: uppercase;
-            letter-spacing: 1px;
-        }
-
-        .booster button:hover {
-            transform: scale(1.1) translateY(-2px);
-            box-shadow: 0 8px 25px rgba(0, 0, 0, 0.5);
-            background: linear-gradient(45deg, #feca57, #ff6b9d);
-        }
-
-        .booster button:active {
-            transform: scale(0.98);
-        }
-
-        .quantity-selector {
-            display: flex;
-            gap: 8px;
-            justify-content: center;
-            margin: 15px 0 10px 0;
-            flex-wrap: wrap;
-        }
-
-        .quantity-btn {
-            background: rgba(255, 255, 255, 0.1);
-            color: rgba(255, 255, 255, 0.6);
-            border: 2px solid rgba(255, 255, 255, 0.3);
-            padding: 8px 15px;
+        .path-section {
+            background: #f0fdf4;
+            border: 2px solid #bbf7d0;
             border-radius: 12px;
-            font-size: 0.9em;
-            cursor: pointer;
-            transition: all 0.3s ease;
-            font-weight: bold;
+            padding: 12px;
+            margin-top: 12px;
+        }
+        
+        .control-row { 
+            display: flex; 
+            align-items: center; 
+            justify-content: space-between; 
+            background: white; 
+            padding: 6px 10px; 
+            border-radius: 8px; 
+            margin-bottom: 6px; 
+            border: 1px solid #e5e7eb; 
+        }
+        
+        .control-label { 
+            font-size: 0.75rem; 
+            font-weight: bold; 
+            color: #6b7280; 
+            text-transform: uppercase; 
+        }
+        
+        .history-item { 
+            display: flex; 
+            align-items: center; 
+            padding: 8px; 
+            background: white; 
+            border-radius: 8px; 
+            margin-bottom: 6px; 
+            font-size: 0.85rem; 
+            animation: slideIn 0.3s ease-out; 
+            border: 1px solid #f3f4f6; 
+        }
+        
+        @keyframes slideIn { 
+            from { transform: translateX(-20px); opacity: 0; } 
+            to { transform: translateX(0); opacity: 1; } 
         }
 
-        .quantity-btn:hover {
-            background: rgba(255, 255, 255, 0.2);
-            color: rgba(255, 255, 255, 0.8);
+        .no-drag {
+            cursor: default;
         }
 
-        .quantity-btn.active {
-            background: linear-gradient(45deg, #10ac84, #1dd1a1);
-            color: white;
-            border-color: #10ac84;
-            box-shadow: 0 4px 15px rgba(16, 172, 132, 0.4);
+        .custom-scrollbar::-webkit-scrollbar {
+            width: 8px;
         }
-
-        .cards-reveal {
-            position: fixed;
-            top: 0;
-            left: 0;
-            right: 0;
-            bottom: 0;
-            background: rgba(0,0,0,0.95);
-            display: none;
-            justify-content: center;
-            align-items: center;
-            z-index: 1000;
-            padding: 20px;
-            backdrop-filter: blur(10px);
-        }
-
-        .cards-reveal.active {
-            display: flex;
-            animation: fadeIn 0.3s ease-out;
-        }
-
-        @keyframes fadeIn {
-            from { opacity: 0; }
-            to { opacity: 1; }
-        }
-
-        .reveal-content {
-            text-align: center;
-            max-width: 95%;
-        }
-
-        .result-message {
-            font-size: 3em;
-            font-weight: bold;
-            margin-bottom: 30px;
-            text-shadow: 0 3px 10px rgba(0,0,0,0.5);
-        }
-
-        .result-message.win {
-            color: #ffd700;
-            animation: winPulse 1s ease-in-out infinite;
-        }
-
-        .result-message.lose {
-            color: #ff6b9d;
-        }
-
-        @keyframes winPulse {
-            0%, 100% { transform: scale(1); text-shadow: 0 0 20px #ffd700; }
-            50% { transform: scale(1.05); text-shadow: 0 0 40px #ffd700; }
-        }
-
-        .cards-container {
-            display: flex;
-            gap: 20px;
-            flex-wrap: wrap;
-            justify-content: center;
-            animation: revealCards 0.5s ease-out;
-            max-height: 60vh;
-            overflow-y: auto;
-            padding: 20px;
-        }
-
-        @keyframes revealCards {
-            from {
-                opacity: 0;
-                transform: scale(0.8) translateY(50px);
-            }
-            to {
-                opacity: 1;
-                transform: scale(1) translateY(0);
-            }
-        }
-
-        .card {
-            width: 200px;
-            height: 280px;
-            background: #1a1a2e;
-            border-radius: 15px;
-            border: 4px solid #ffd700;
-            display: flex;
-            flex-direction: column;
-            justify-content: center;
-            align-items: center;
-            padding: 8px;
-            animation: cardFlip 0.6s ease-out;
-            position: relative;
-            box-shadow: 0 8px 25px rgba(0,0,0,0.6);
-            overflow: hidden;
-        }
-
-        .card::before {
-            content: '';
-            position: absolute;
-            top: -4px;
-            left: -4px;
-            right: -4px;
-            bottom: -4px;
-            background: linear-gradient(45deg, #ffd700, #ff6b9d, #c44569, #667eea, #ffd700);
-            border-radius: 17px;
-            z-index: -1;
-            animation: cardBorderGlow 3s linear infinite;
-        }
-
-        @keyframes cardBorderGlow {
-            0% { filter: hue-rotate(0deg); }
-            100% { filter: hue-rotate(360deg); }
-        }
-
-        @keyframes cardFlip {
-            0% {
-                transform: rotateY(180deg);
-            }
-            100% {
-                transform: rotateY(0deg);
-            }
-        }
-
-        .card img {
-            width: 100%;
-            height: 100%;
-            object-fit: contain;
+        
+        .custom-scrollbar::-webkit-scrollbar-track {
+            background: #f1f1f1;
             border-radius: 10px;
-            padding: 5px;
+        }
+        
+        .custom-scrollbar::-webkit-scrollbar-thumb {
+            background: #c1c1c1;
+            border-radius: 10px;
+        }
+        
+        .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+            background: #a8a8a8;
         }
 
-        .card.is-quad {
-            border-color: #fff;
-            animation: pulse 1s infinite, cardFlip 0.6s ease-out;
-        }
-
-        .card.is-quad::before {
-            background: linear-gradient(45deg, #ffd700, #ffed4e, #feca57, #ffd700);
-            animation: quadGlow 1.5s ease-in-out infinite alternate;
-        }
-
-        @keyframes quadGlow {
-            0% { filter: brightness(1) hue-rotate(0deg); }
-            100% { filter: brightness(1.3) hue-rotate(20deg); }
-        }
-
-        @keyframes pulse {
-            0%, 100% {
-                box-shadow: 0 0 30px #ffd700, 0 0 60px #ffd700;
-                transform: scale(1);
-            }
-            50% {
-                box-shadow: 0 0 50px #ffd700, 0 0 100px #ffd700;
-                transform: scale(1.05);
-            }
-        }
-
-        .card-count {
-            position: absolute;
-            bottom: 10px;
-            right: 10px;
-            background: rgba(0,0,0,0.8);
-            padding: 5px 12px;
-            border-radius: 15px;
-            font-size: 0.9em;
-            font-weight: bold;
-            border: 2px solid rgba(255,255,255,0.3);
-        }
-
-        .close-reveal {
-            position: fixed;
-            top: 30px;
-            right: 30px;
-            background: linear-gradient(45deg, #ff6b9d, #c44569);
-            color: white;
-            border: 3px solid #fff;
-            padding: 15px 30px;
-            border-radius: 25px;
-            font-size: 1.2em;
-            cursor: pointer;
-            font-weight: bold;
-            box-shadow: 0 5px 20px rgba(0, 0, 0, 0.5);
-            transition: all 0.3s ease;
-            text-transform: uppercase;
-            letter-spacing: 1px;
-            z-index: 1001;
-        }
-
-        .close-reveal:hover {
-            transform: scale(1.1) translateY(-2px);
-            box-shadow: 0 8px 30px rgba(0, 0, 0, 0.6);
-            background: linear-gradient(45deg, #feca57, #ff6b9d);
-        }
-
-        /* Animation de drop */
-        .drop-animation {
-            position: fixed;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
+        .control-button {
+            width: 28px;
+            height: 28px;
+            border-radius: 6px;
+            background: #f3f4f6;
+            border: 1px solid #d1d5db;
             display: flex;
-            justify-content: center;
             align-items: center;
-            z-index: 9999;
-            background: rgba(0, 0, 0, 0.85);
-            animation: dropFadeIn 0.5s ease;
-        }
-
-        @keyframes dropFadeIn {
-            from { opacity: 0; }
-            to { opacity: 1; }
-        }
-
-        .drop-popup {
-            background: linear-gradient(135deg, #f39c12, #e67e22, #f39c12);
-            padding: 30px;
-            border-radius: 20px;
-            text-align: center;
-            max-width: 500px;
-            animation: dropScaleIn 0.6s ease;
-            border: 4px solid #feca57;
-            box-shadow: 0 0 40px rgba(243, 156, 18, 0.8);
-            position: relative;
-            overflow: hidden;
-            z-index: 10000;
-        }
-
-        @keyframes dropScaleIn {
-            from { 
-                transform: scale(0.2) rotate(-5deg);
-                opacity: 0;
-            }
-            to { 
-                transform: scale(1) rotate(0deg);
-                opacity: 1;
-            }
-        }
-
-        .drop-popup-icon {
-            font-size: 6em;
-            margin-bottom: 15px;
-            animation: dropBounce 0.8s infinite;
-            filter: drop-shadow(0 0 15px rgba(255, 255, 255, 0.8));
-        }
-
-        @keyframes dropBounce {
-            0%, 100% { transform: translateY(0) scale(1); }
-            50% { transform: translateY(-20px) scale(1.1); }
-        }
-
-        .drop-popup-title {
-            font-size: 2.5em;
-            margin-bottom: 10px;
-            color: white;
-            text-shadow: 0 0 15px rgba(0,0,0,0.8);
-            background: linear-gradient(45deg, #f39c12, #e67e22);
-            -webkit-background-clip: text;
-            -webkit-text-fill-color: transparent;
-            background-clip: text;
-        }
-
-        .drop-popup-description {
-            font-size: 1.3em;
-            margin-bottom: 20px;
-            color: white;
-            font-weight: bold;
-            text-shadow: 0 0 8px rgba(0,0,0,0.5);
-        }
-
-        .drop-close {
-            padding: 12px 25px;
-            background: linear-gradient(45deg, #f39c12, #e67e22);
-            border: none;
-            border-radius: 50px;
-            color: white;
-            font-size: 1.1em;
+            justify-content: center;
             cursor: pointer;
-            transition: all 0.3s;
             font-weight: bold;
-            box-shadow: 0 5px 15px rgba(0,0,0,0.3);
-            z-index: 10001;
+            transition: all 0.2s;
         }
 
-        .drop-close:hover {
-            background: linear-gradient(45deg, #e67e22, #f39c12);
+        .control-button:hover {
+            background: #e5e7eb;
             transform: scale(1.05);
-            box-shadow: 0 8px 20px rgba(0,0,0,0.4);
         }
 
-        @media (max-width: 1024px) and (min-width: 769px) {
-            .container {
-                max-width: 95%;
-            }
-
-            .boosters {
-                gap: 15px;
-            }
-
-            .booster {
-                min-width: 180px;
-                padding: 20px;
-            }
-
-            .collection-grid {
-                grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
-                gap: 18px;
-            }
-
-            .collection-card img {
-                height: 150px;
-            }
-
-            .stat-box {
-                padding: 12px 25px;
-            }
-
-            .card {
-                width: 180px;
-                height: 252px;
-            }
-
-            .cards-container {
-                gap: 18px;
-                padding: 15px;
-            }
+        .control-button:active {
+            transform: scale(0.95);
         }
 
-        @media (max-width: 768px) {
-            .card {
-                width: 150px;
-                height: 210px;
-            }
-
-            .result-message {
-                font-size: 2em;
-            }
-
-            h1 {
-                font-size: 2em;
-            }
-
-            .collection-grid {
-                grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
-                gap: 15px;
-            }
-
-            .collection-card img {
-                height: 140px;
-            }
-
-            .boosters {
-                flex-direction: column;
-                align-items: center;
-            }
-
-            .booster {
-                width: 100%;
-                max-width: 300px;
-            }
-
-            .stat-box {
-                padding: 10px 20px;
-            }
-
-            .stat-box .value {
-                font-size: 1.5em;
-            }
-
-            .close-reveal {
-                top: 15px;
-                right: 15px;
-                padding: 10px 20px;
-                font-size: 1em;
-            }
+        .color-preview {
+            width: 20px;
+            height: 20px;
+            border-radius: 4px;
+            border: 2px solid white;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            cursor: pointer;
         }
 
-        .collection {
-            background: rgba(0, 0, 0, 0.7);
-            border-radius: 20px;
-            padding: 30px;
-            margin-top: 30px;
-            backdrop-filter: blur(10px);
-            border: 2px solid rgba(255, 215, 0, 0.3);
-            position: relative;
-        }
-
-        .collection::before {
-            content: '';
+        .path-node {
+            width: 24px;
+            height: 24px;
+            border-radius: 50%;
+            background: #3b82f6;
+            border: 3px solid white;
             position: absolute;
-            top: -2px;
-            left: -2px;
-            right: -2px;
-            bottom: -2px;
-            background: linear-gradient(45deg, #ffd700, #ff6b9d, #c44569, #667eea, #ffd700);
-            border-radius: 22px;
-            z-index: -1;
-            animation: borderGlow 3s linear infinite;
+            cursor: move;
+            z-index: 40;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.5);
         }
 
-        .collection h2 {
-            margin-bottom: 20px;
-            text-align: center;
-            font-size: 2em;
+        .path-node:hover {
+            transform: scale(1.2);
+            box-shadow: 0 4px 12px rgba(59, 130, 246, 0.7);
+            z-index: 50;
         }
 
-        .collection-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
-            gap: 20px;
+        .path-node.dragging {
+            opacity: 0.8;
+            box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.5);
         }
 
-        .collection-card {
-            background: rgba(0, 0, 0, 0.6);
-            border-radius: 12px;
-            padding: 10px;
-            text-align: center;
-            border: 3px solid rgba(255,255,255,0.3);
-            position: relative;
-            overflow: hidden;
-            transition: all 0.3s ease;
-            backdrop-filter: blur(5px);
+        .path-node-start {
+            background: #10b981;
         }
 
-        .collection-card:hover {
-            transform: translateY(-5px);
-            box-shadow: 0 10px 30px rgba(0,0,0,0.5);
-            border-color: #ffd700;
+        .path-node-end {
+            background: #ef4444;
         }
-
-        .collection-card img {
-            width: 100%;
-            height: 160px;
-            object-fit: contain;
-            border-radius: 8px;
-            margin-bottom: 8px;
-            padding: 5px;
-        }
-
-        .collection-card .card-label {
-            font-weight: bold;
-            color: #ffd700;
-        }
-
-        /* Style pour le bouton de sauvegarde manuelle */
-        .save-button {
-            position: fixed;
-            bottom: 20px;
-            right: 20px;
-            background: linear-gradient(45deg, #10ac84, #1dd1a1);
-            color: white;
-            border: none;
-            padding: 15px 25px;
-            border-radius: 25px;
-            font-size: 1em;
-            cursor: pointer;
-            font-weight: bold;
-            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.4);
-            transition: all 0.3s ease;
-            z-index: 100;
-        }
-
-        .save-button:hover {
-            transform: scale(1.05);
-            box-shadow: 0 8px 20px rgba(0, 0, 0, 0.5);
-        }
-
-        /* Style pour l'indicateur de sauvegarde */
+        
         .save-indicator {
             position: fixed;
-            bottom: 20px;
-            left: 20px;
-            background: rgba(0, 0, 0, 0.7);
+            bottom: 10px;
+            right: 10px;
+            background: #10b981;
             color: white;
-            padding: 10px 15px;
-            border-radius: 15px;
-            font-size: 0.9em;
-            backdrop-filter: blur(10px);
-            border: 2px solid rgba(255, 255, 255, 0.2);
+            padding: 8px 15px;
+            border-radius: 8px;
+            font-size: 0.85rem;
+            z-index: 1000;
             display: none;
-            z-index: 100;
+            animation: slideUp 0.3s ease-out;
+            box-shadow: 0 4px 12px rgba(16, 185, 129, 0.3);
+        }
+        
+        @keyframes slideUp {
+            from { transform: translateY(20px); opacity: 0; }
+            to { transform: translateY(0); opacity: 1; }
         }
 
-        .save-indicator.show {
-            display: block;
-            animation: fadeInOut 2s ease;
+        #path-info {
+            margin-top: 10px;
+            padding: 8px;
+            background: #dbeafe;
+            border-radius: 8px;
+            border: 1px solid #93c5fd;
+            text-align: center;
         }
 
-        @keyframes fadeInOut {
-            0% { opacity: 0; }
-            20% { opacity: 1; }
-            80% { opacity: 1; }
-            100% { opacity: 0; }
-        }
-
-        /* Style pour le compteur d'alignement */
-        .alignment-counter {
-            background: linear-gradient(45deg, #9b59b6, #8e44ad);
-            padding: 15px 30px;
-            border-radius: 15px;
-            backdrop-filter: blur(10px);
-            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.3);
-            border: 2px solid rgba(255, 255, 255, 0.2);
+        .path-creation-controls {
             display: flex;
-            flex-direction: column;
-            align-items: center;
+            gap: 8px;
+            margin-top: 10px;
+            justify-content: center;
         }
 
-        .alignment-counter-label {
-            font-size: 0.9em;
-            opacity: 0.9;
-            margin-bottom: 5px;
-        }
-
-        .alignment-counter-value {
-            font-size: 1.8em;
+        .path-point-number {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            color: white;
             font-weight: bold;
-            color: #e74c3c;
+            font-size: 10px;
+            pointer-events: none;
         }
     </style>
 </head>
 <body>
-    <div class="container">
-        <header>
-            <h1>Jeu de Collection de Cartes</h1>
-            <p class="subtitle">Obtiens un carré (4 cartes identiques) en un seul tirage</p>
-        </header>
+    <button id="restore-btn" onclick="togglePanel()" class="hidden fixed top-5 left-5 z-50 bg-green-600 hover:bg-green-700 text-white p-3 rounded-full shadow-lg transition-all hover:scale-110 border-2 border-white pulse-btn" title="Ouvrir le menu">
+        <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M4 6h16M4 12h16M4 18h16" />
+        </svg>
+    </button>
 
-        <div class="stats">
-            <div class="stat-box">
-                <h3>Tentatives</h3>
-                <div class="value" id="attempts">0</div>
-            </div>
-            <div class="stat-box">
-                <h3>Carrés gagnés</h3>
-                <div class="value" id="wins">0</div>
-            </div>
-            <div class="stat-box">
-                <h3>Taux de réussite</h3>
-                <div class="value" id="winRate">0%</div>
-            </div>
-            <div class="drop-pool-display">
-                <h3>POOL DE DROP</h3>
-                <div class="drop-pool-value" id="dropPoolValue">0 pièces</div>
-                <div class="drop-pool-info" id="dropPoolInfo">Chance de gagner des pièces</div>
-            </div>
-            <div class="alignment-counter">
-                <h3>BONUS PROGRESSION</h3>
-                <div class="alignment-counter-value" id="alignmentCounterValue">?</div>
-                <div class="alignment-counter-info" id="alignmentCounterInfo">Prochain bonus</div>
-            </div>
-            <div class="last-alignment-display">
-                <h3>DERNIER BONUS</h3>
-                <div class="last-alignment-value" id="lastAlignmentValue">Aucun</div>
-                <div class="last-alignment-info" id="lastAlignmentInfo">Bonus spécial activé</div>
-            </div>
-        </div>
-
-        <div class="boosters">
-            <div class="booster bronze">
-                <img src="https://i.ibb.co/7JsBRrCn/IMG-5885.png" alt="Bronze" class="booster-image">
-                <h2>🥉 Bronze</h2>
-                <div class="info">4 cartes</div>
-                <div class="quantity-selector">
-                    <button class="quantity-btn active" onclick="selectQuantity(this, 'bronze', 1)">1</button>
-                    <button class="quantity-btn" onclick="selectQuantity(this, 'bronze', 5)">5</button>
-                    <button class="quantity-btn" onclick="selectQuantity(this, 'bronze', 10)">10</button>
-                    <button class="quantity-btn" onclick="selectQuantity(this, 'bronze', 30)">30</button>
-                    <button class="quantity-btn" onclick="selectQuantity(this, 'bronze', 50)">50</button>
-                    <button class="quantity-btn" onclick="selectQuantity(this, 'bronze', 100)">100</button>
+    <div id="setup-layer">
+        <div id="draggable-panel">
+            <div class="panel-header" id="panel-header-drag">
+                <div class="flex items-center gap-2 pointer-events-none">
+                    <span class="text-lg">🎮 Contrôle Course</span>
                 </div>
-                <button onclick="openBooster(4, 'Bronze')">Ouvrir</button>
+                <div class="flex items-center gap-2">
+                    <div id="connection-status" class="flex items-center text-xs bg-black/20 px-2 py-1 rounded no-drag">
+                        <span class="status-indicator status-off" id="socket-dot"></span> 
+                        <span id="socket-text" class="hidden sm:inline">OFF</span>
+                    </div>
+                    <button onclick="togglePanel()" class="ml-1 text-white hover:bg-white/20 rounded p-1 transition-colors no-drag">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M20 12H4" />
+                        </svg>
+                    </button>
+                </div>
             </div>
-            <div class="booster silver">
-                <img src="https://i.ibb.co/20bnDRgP/IMG-5721.png" alt="Silver" class="booster-image">
-                <h2>🥈 Silver</h2>
-                <div class="info">5 cartes</div>
-                <button onclick="openBooster(5, 'Silver')">Ouvrir</button>
-            </div>
-            <div class="booster gold">
-                <img src="https://i.ibb.co/0pjVfMTt/IMG-6165.png" alt="Gold" class="booster-image">
-                <h2>🥇 Gold</h2>
-                <div class="info">7 cartes</div>
-                <button onclick="openBooster(7, 'Gold')">Ouvrir</button>
-            </div>
-        </div>
 
-        <div class="collection">
-            <h2>📚 Galerie des 21 Cartes</h2>
-            <div class="collection-grid" id="collectionGrid"></div>
+            <div class="panel-content custom-scrollbar">
+                <div class="mb-4 text-center">
+                    <button onclick="connectToServer()" id="btn-connect" class="btn btn-connect w-full mb-2 shadow-md">
+                        📡 Connecter Serveur
+                    </button>
+                    <p class="text-xs text-gray-500">Port 8832 | WebSocket</p>
+                </div>
+
+                <div class="flex items-center gap-2 mb-2 w-full">
+                    <input type="text" id="player-input" class="flex-1 border-2 border-green-500 rounded-lg px-3 py-2 text-base focus:outline-none focus:ring-2 focus:ring-green-200" placeholder="Pseudo..." maxlength="12" autocomplete="off">
+                    <button onclick="addPlayerManual()" class="bg-green-500 hover:bg-green-600 text-white rounded-lg px-4 py-2 font-bold transition-colors shadow-md">+</button>
+                </div>
+                
+                <button onclick="simulateJoin()" class="w-full btn bg-blue-500 hover:bg-blue-600 text-white py-2 mb-2 font-bold shadow-md transition-all active:scale-95 flex items-center justify-center gap-2">
+                    🎮 Rejoindre la course
+                </button>
+
+                <div id="queue-bar">
+                    ⏳ File d'attente : <span id="queue-count">0</span>
+                </div>
+                
+                <div class="flex justify-between items-center mb-1 border-b pb-1">
+                    <span class="font-bold text-gray-700 text-sm">
+                        Joueurs (<span id="player-count-display">0/20</span>)
+                    </span>
+                    <button onclick="resetRegistrations()" class="text-xs text-red-500 hover:underline">
+                        Vider
+                    </button>
+                </div>
+                
+                <div id="player-list" class="grid grid-cols-2 gap-2 max-h-32 overflow-y-auto mb-4 bg-gray-50 p-2 rounded-lg border border-gray-100">
+                    <div class="text-gray-400 italic text-center col-span-full text-xs mt-4" id="empty-msg">
+                        Aucun joueur...
+                    </div>
+                </div>
+                
+                <button onclick="startTestGame()" class="w-full btn bg-purple-500 hover:bg-purple-600 text-white py-2 mb-2 font-bold shadow-md transition-all active:scale-95 flex items-center justify-center gap-2">
+                    🤖 Remplir avec Bots
+                </button>
+                
+                <button id="btn-launch-game" onclick="forceStart()" disabled class="w-full btn btn-start py-3 text-lg transition-all duration-300 opacity-50 shadow-lg mb-4">
+                    Lancer (Auto à 20) ⏳
+                </button>
+
+                <div class="path-section">
+                    <h3 class="text-xs text-emerald-600 mb-2 uppercase tracking-wide">🛤️ Chemin des Bulles</h3>
+                    
+                    <div class="control-row">
+                        <span class="control-label">Épaisseur ligne</span>
+                        <div class="flex gap-1">
+                            <button onclick="adjustPathWidth(-2)" class="control-button">-</button>
+                            <span id="path-width-display" class="text-xs w-10 text-center leading-6 font-mono font-bold">40px</span>
+                            <button onclick="adjustPathWidth(2)" class="control-button">+</button>
+                        </div>
+                    </div>
+
+                    <div class="control-row">
+                        <span class="control-label">Couleur ligne</span>
+                        <div class="flex gap-1">
+                            <input type="color" id="path-color-input" value="#e2e8f0" onchange="changePathColor()" class="color-preview">
+                            <button onclick="resetPathColor()" class="control-button text-xs">R</button>
+                        </div>
+                    </div>
+
+                    <div class="control-row">
+                        <span class="control-label">Marges</span>
+                        <div class="flex gap-1">
+                            <button onclick="adjustPathPadding(-5)" class="control-button">-</button>
+                            <span id="path-padding-display" class="text-xs w-10 text-center leading-6 font-mono">40px</span>
+                            <button onclick="adjustPathPadding(5)" class="control-button">+</button>
+                        </div>
+                    </div>
+
+                    <div class="control-row">
+                        <span class="control-label">Courbure</span>
+                        <div class="flex gap-1">
+                            <button onclick="adjustPathCurve(-5)" class="control-button">-</button>
+                            <span id="path-curve-display" class="text-xs w-10 text-center leading-6 font-mono">0px</span>
+                            <button onclick="adjustPathCurve(5)" class="control-button">+</button>
+                        </div>
+                    </div>
+
+                    <div class="control-row">
+                        <span class="control-label">Effet 3D</span>
+                        <div class="flex gap-1">
+                            <button onclick="togglePath3D()" class="control-button text-xs" id="btn-3d">OFF</button>
+                        </div>
+                    </div>
+                    
+                    <div class="control-row">
+                        <span class="control-label">Afficher tracé</span>
+                        <div class="flex gap-1">
+                            <button onclick="togglePathVisibility()" class="control-button text-xs" id="btn-show-path">ON</button>
+                        </div>
+                    </div>
+
+                    <div class="mt-2 text-center">
+                        <button onclick="togglePathEditMode()" id="btn-edit-path" class="text-xs bg-emerald-100 hover:bg-emerald-200 text-emerald-700 px-3 py-1 rounded-full border border-emerald-300 transition-colors">
+                            ✏️ Éditer le chemin
+                        </button>
+                        <button onclick="togglePathCreationMode()" id="btn-create-path" class="text-xs bg-blue-100 hover:bg-blue-200 text-blue-700 px-3 py-1 rounded-full border border-blue-300 transition-colors ml-2">
+                            📍 Créer des points
+                        </button>
+                        <button onclick="resetPathSettings()" class="text-xs text-gray-400 hover:text-red-500 underline ml-2">
+                            Réinitialiser
+                        </button>
+                    </div>
+
+                    <div class="path-creation-controls" id="path-creation-controls" style="display: none;">
+                        <button onclick="addPathPointAtCenter()" class="text-xs bg-green-500 hover:bg-green-600 text-white px-3 py-1 rounded">
+                            ➕ Point centre
+                        </button>
+                        <button onclick="clearPathPoints()" class="text-xs bg-red-500 hover:bg-red-600 text-white px-3 py-1 rounded">
+                            🗑️ Vider
+                        </button>
+                        <button onclick="autoGeneratePath()" class="text-xs bg-purple-500 hover:bg-purple-600 text-white px-3 py-1 rounded">
+                            🔄 Auto
+                        </button>
+                    </div>
+
+                    <div id="path-info" class="text-xs text-center mt-2 bg-blue-50 p-2 rounded border border-blue-100">
+                        <div class="font-bold text-blue-700">Points du chemin: <span id="path-points-count">0</span></div>
+                        <div class="text-blue-500 text-[10px]" id="path-status">⚠️ Ajoutez au moins 2 points</div>
+                    </div>
+                </div>
+
+                <div class="background-section mt-4">
+                    <h3 class="text-xs text-amber-600 mb-2 uppercase tracking-wide">🏞️ Fond d'écran</h3>
+                    <input type="text" id="background-url-input" class="w-full text-xs border border-amber-200 rounded p-1 mb-2" placeholder="URL Image de fond...">
+                    
+                    <div class="flex gap-2 mb-2">
+                        <button onclick="loadBackgroundFromUrl()" class="flex-1 bg-amber-500 text-white text-xs py-1 rounded hover:bg-amber-600">
+                            URL
+                        </button>
+                        <label class="flex-1 bg-gray-500 text-white text-xs py-1 rounded hover:bg-gray-600 text-center cursor-pointer">
+                            Fichier
+                            <input type="file" class="hidden" accept="image/*" onchange="loadBackgroundFromFile(this)">
+                        </label>
+                    </div>
+                    
+                    <div class="control-row">
+                        <span class="control-label">Opacité</span>
+                        <div class="flex gap-1">
+                            <button onclick="adjustBackgroundOpacity(-0.1)" class="control-button">-</button>
+                            <span id="bg-opacity-display" class="text-xs w-8 text-center leading-6 font-mono">0.7</span>
+                            <button onclick="adjustBackgroundOpacity(0.1)" class="control-button">+</button>
+                        </div>
+                    </div>
+                    
+                    <div class="control-row">
+                        <span class="control-label">Flou</span>
+                        <div class="flex gap-1">
+                            <button onclick="adjustBackgroundBlur(-1)" class="control-button">-</button>
+                            <span id="bg-blur-display" class="text-xs w-8 text-center leading-6 font-mono">0px</span>
+                            <button onclick="adjustBackgroundBlur(1)" class="control-button">+</button>
+                        </div>
+                    </div>
+                    
+                    <div class="flex gap-1 mt-1">
+                        <button onclick="fitBackgroundImage()" class="flex-1 text-[10px] bg-amber-100 hover:bg-amber-200 rounded text-amber-600 py-1">
+                            Ajuster
+                        </button>
+                        <button onclick="clearBackground()" class="flex-1 text-[10px] text-gray-400 hover:text-red-500 underline text-center py-1">
+                            Supprimer
+                        </button>
+                    </div>
+                </div>
+
+                <div class="custom-track-section mt-4">
+                    <h3 class="text-xs text-indigo-600 mb-2 uppercase tracking-wide">🎨 Piste</h3>
+                    <input type="text" id="track-url-input" class="w-full text-xs border border-indigo-200 rounded p-1 mb-2" placeholder="URL Image...">
+                    
+                    <div class="flex gap-2 mb-2">
+                        <button onclick="loadTrackFromUrl()" class="flex-1 bg-indigo-500 text-white text-xs py-1 rounded hover:bg-indigo-600">
+                            URL
+                        </button>
+                        <label class="flex-1 bg-gray-500 text-white text-xs py-1 rounded hover:bg-gray-600 text-center cursor-pointer">
+                            Fichier
+                            <input type="file" class="hidden" accept="image/*" onchange="loadTrackFromFile(this)">
+                        </label>
+                    </div>
+                    
+                    <div class="control-row">
+                        <span class="control-label">Zoom</span>
+                        <div class="flex gap-1">
+                            <button onclick="adjustTrackScale(-0.1)" class="control-button">1</button>
+                            <span id="scale-display" class="text-xs w-8 text-center leading-6 font-mono">1.0</span>
+                            <button onclick="adjustTrackScale(0.1)" class="control-button">2</button>
+                        </div>
+                    </div>
+                    
+                    <div class="control-row">
+                        <span class="control-label">Largeur</span>
+                        <div class="flex gap-1">
+                            <button onclick="adjustTrackWidth(-5)" class="control-button">3</button>
+                            <span id="width-display" class="text-xs w-10 text-center leading-6 font-mono">90%</span>
+                            <button onclick="adjustTrackWidth(5)" class="control-button">4</button>
+                        </div>
+                    </div>
+                    
+                    <div class="control-row">
+                        <span class="control-label">Hauteur</span>
+                        <div class="flex gap-1">
+                            <button onclick="adjustTrackHeight(-5)" class="control-button">5</button>
+                            <span id="height-display" class="text-xs w-10 text-center leading-6 font-mono">90%</span>
+                            <button onclick="adjustTrackHeight(5)" class="control-button">6</button>
+                        </div>
+                    </div>
+                    
+                    <div class="control-row">
+                        <span class="control-label">Décalage Y</span>
+                        <div class="flex gap-1">
+                            <button onclick="adjustOffsetY(-10)" class="control-button">⬆</button>
+                            <span id="offset-display" class="text-xs w-10 text-center leading-6 font-mono">115</span>
+                            <button onclick="adjustOffsetY(10)" class="control-button">⬇</button>
+                        </div>
+                    </div>
+                    
+                    <div class="control-row">
+                        <span class="control-label">Lignes</span>
+                        <div class="flex gap-1">
+                            <button onclick="adjustRows(-1)" class="control-button">-</button>
+                            <span id="rows-display" class="text-xs w-8 text-center leading-6 font-mono font-bold text-green-600">5</span>
+                            <button onclick="adjustRows(1)" class="control-button">+</button>
+                        </div>
+                    </div>
+                    
+                    <div class="control-row" style="justify-content: center; background: none;">
+                        <button onclick="toggleDebug()" id="btn-debug" class="text-[10px] bg-white border border-gray-300 px-3 py-1 rounded-full text-gray-500 hover:text-indigo-600 hover:border-indigo-400 transition-colors">
+                            👁️ Tracé
+                        </button>
+                    </div>
+                    
+                    <div class="flex gap-1 mt-1">
+                        <button onclick="fitTrackImage()" class="flex-1 text-[10px] bg-indigo-100 hover:bg-indigo-200 rounded text-indigo-600 py-1">
+                            Ajuster Image
+                        </button>
+                        <button onclick="resetTrackSize()" class="flex-1 text-[10px] bg-gray-200 hover:bg-gray-300 rounded text-gray-600 py-1">
+                            Taille Écran
+                        </button>
+                        <button onclick="clearTrackImage()" class="flex-1 text-[10px] text-gray-400 hover:text-red-500 underline text-center py-1">
+                            Supprimer
+                        </button>
+                    </div>
+                </div>
+
+                <div class="mt-4 border-t border-gray-200 pt-3">
+                    <h3 class="text-xs font-bold text-gray-500 uppercase mb-2 flex items-center gap-1">
+                        🏆 Historique 
+                        <span id="history-count" class="bg-gray-200 text-gray-600 px-1 rounded text-[10px]">0</span>
+                    </h3>
+                    <div id="history-list" class="space-y-1 max-h-32 overflow-y-auto bg-gray-50 p-2 rounded-lg border border-gray-100 min-h-[50px]">
+                        <div class="text-gray-400 italic text-center text-xs pt-2">
+                            Aucune victoire...
+                        </div>
+                    </div>
+                </div>
+
+                <div class="mt-4 p-2 bg-gray-50 rounded-lg border border-gray-200">
+                    <div class="flex justify-between items-center">
+                        <span class="text-xs text-gray-500">Sauvegarde auto</span>
+                        <span id="last-save-time" class="text-[10px] text-gray-400">Jamais</span>
+                    </div>
+                    <button onclick="manualSave()" class="w-full mt-1 text-xs bg-gray-200 hover:bg-gray-300 text-gray-700 py-1 rounded">
+                        💾 Sauvegarder maintenant
+                    </button>
+                </div>
+            </div>
         </div>
     </div>
 
-    <div class="cards-reveal" id="cardsReveal">
-        <button class="close-reveal" onclick="closeReveal()">Fermer</button>
-        <div class="reveal-content">
-            <div class="result-message" id="resultMessage"></div>
-            <div class="cards-container" id="cardsContainer"></div>
+    <div id="game-container">
+        <div id="winner-overlay">
+            <h1 class="text-6xl text-yellow-400 mb-8 drop-shadow-lg animate-bounce">
+                🏆 VICTOIRE ! 🏆
+            </h1>
+            <div class="bg-white/10 p-8 rounded-3xl border border-white/20 backdrop-blur-md text-center shadow-2xl">
+                <div class="text-2xl mb-2 text-gray-200 font-bold">
+                    Le grand champion est
+                </div>
+                <div id="winner-name" class="player-tag text-5xl mb-6 transform rotate-2">
+                    Joueur X
+                </div>
+                <div class="flex gap-4 justify-center mt-6">
+                    <button id="btn-next-race" class="btn btn-reset px-8 py-3 text-xl shadow-lg hover:scale-105" onclick="resetGame()">
+                        Prochaine Course (10s)
+                    </button>
+                </div>
+            </div>
+            <div class="mt-8 bg-white/95 text-black p-4 rounded-xl max-h-48 overflow-y-auto w-80 shadow-2xl">
+                <h3 class="text-center border-b border-gray-300 pb-2 mb-2 font-bold text-gray-700">
+                    Classement Final
+                </h3>
+                <table class="w-full text-left text-sm" id="final-results-table"></table>
+            </div>
         </div>
+        
+        <div id="leaderboard">
+            <h3 class="font-bold border-b mb-2 pb-1 text-center text-green-700">
+                Course en cours
+            </h3>
+            <div id="leader-list"></div>
+        </div>
+        
+        <canvas id="raceCanvas"></canvas>
     </div>
-
-    <!-- Bouton de sauvegarde manuelle -->
-    <button class="save-button" onclick="manualSave()">💾 Sauvegarder</button>
     
-    <!-- Indicateur de sauvegarde -->
-    <div class="save-indicator" id="saveIndicator">Sauvegarde effectuée</div>
+    <div id="save-indicator" class="save-indicator">
+        💾 Sauvegarde auto effectuée
+    </div>
 
     <script>
-        const TOTAL_CARD_TYPES = 21;
-        const cardImages = {
-            1: 'https://i.ibb.co/r2kRpBqz/IMG-6174.png',
-            2: 'https://i.ibb.co/TMdW3dZq/IMG-6173.png',
-            3: 'https://i.ibb.co/DgKGdkx4/IMG-6172.png',
-            4: 'https://i.ibb.co/k2tByVgX/IMG-6171.png',
-            5: 'https://i.ibb.co/4RJ0TCYh/IMG-6170.png',
-            6: 'https://i.ibb.co/ymyr0ws7/IMG-6169.png',
-            7: 'https://i.ibb.co/Dg4FYW5L/IMG-6168.png',
-            8: 'https://i.ibb.co/PzPSBNW0/IMG-6167.png',
-            9: 'https://i.ibb.co/F4WrT6Sb/IMG-6166.png',
-            10: 'https://i.ibb.co/0pjVfMTt/IMG-6165.png',
-            11: 'https://i.ibb.co/hRtd2JHD/IMG-6164.png',
-            12: 'https://i.ibb.co/hxXnkQh7/IMG-5861.png',
-            13: 'https://i.ibb.co/kszc1xVw/IMG-5858.png',
-            14: 'https://i.ibb.co/ZRFjM91q/IMG-5895.png',
-            15: 'https://i.ibb.co/C5M6DHcS/IMG-7356-Photoroom.png',
-            16: 'https://i.ibb.co/JwCygB4T/IMG-6460-Photoroom.png',
-            17: 'https://i.ibb.co/2YpQxB1Y/IMG-6620.png',
-            18: 'https://i.ibb.co/qLZ05xGV/IMG-6461-Photoroom.png',
-            19: 'https://i.ibb.co/qL1chxtM/IMG-5898.png',
-            20: 'https://i.ibb.co/V0zNBRgq/IMG-6834.png',
-            21: 'https://i.ibb.co/whJNdnxZ/symbol1.png'
-        };
+        // Configuration du jeu
+        const MAX_PLAYERS = 20;
+        const SERVER_PORT = 8832;
+        const SERVER_WS_URL = `ws://localhost:${SERVER_PORT}`;
+        const COLORS = [
+            '#EF4444', '#F97316', '#F59E0B', '#EAB308', '#84CC16', 
+            '#22C55E', '#10B981', '#14B8A6', '#06B6D4', '#0EA5E9', 
+            '#3B82F6', '#6366F1', '#8B5CF6', '#A855F7', '#D946EF', 
+            '#EC4899', '#F43F5E', '#334155', '#475569', '#000000'
+        ];
+        
+        // Clés pour la sauvegarde locale
+        const STORAGE_KEY = 'snake_race_settings';
+        const AUTO_SAVE_INTERVAL = 10000; // 10 secondes
+        const SAVE_THROTTLE = 2000; // 2 secondes entre sauvegardes automatiques
 
-        // Probabilités de carré par type de booster (environ 1 chance sur 1 million)
-        const boosterChances = {
-            bronze: 0.000001,  // 0.0001% de chance (1 sur 1 million)
-            silver: 0.000005,  // 0.0005% de chance
-            gold: 0.00001      // 0.001% de chance
-        };
+        // Variables globales
+        const canvas = document.getElementById('raceCanvas');
+        const ctx = canvas.getContext('2d');
+        
+        let registeredNames = [];
+        let waitingQueue = [];
+        let winnersHistory = [];
+        let players = [];
+        let isRacing = false;
+        let animationId = null;
+        let winner = null;
+        let socket = null;
+        
+        // Variables pour la piste
+        let trackImage = null;
+        let trackScale = 1.0;
+        let trackX = 0;
+        let trackY = 0;
+        let trackWidthPercent = 90;
+        let trackHeightPercent = 90;
+        let useCustomSize = false;
+        let globalBallOffsetY = 115;
+        let trackRows = 5;
+        let showDebugPath = false;
+        
+        // Variables pour le fond d'écran
+        let backgroundImage = null;
+        let backgroundOpacity = 0.7;
+        let backgroundBlur = 0;
+        let backgroundScale = 1.0;
+        let backgroundX = 0;
+        let backgroundY = 0;
 
-        // Variables pour le système de drop
-        let dropPool = 0; // Nombre de pièces dans le pool de drop
-        let dropCounter = 0; // Compteur pour ajouter des pièces au pool tous les 10 tours
+        // Variables pour le chemin des bulles
+        let pathWidth = 40;
+        let pathColor = '#e2e8f0';
+        let pathPadding = 40;
+        let pathCurve = 0;
+        let path3DEnabled = false;
+        let pathEditMode = false;
+        let pathCreationMode = false;
+        let pathNodes = [];
+        let draggingNode = null;
+        let showPath = true;
+        let lastSaveTime = null;
+        let saveThrottleTimeout = null;
+        let autoSaveInterval = null;
 
-        // Variables pour le système d'alignement automatique
-        let alignmentCounter = 0; // Compteur pour l'alignement automatique
-        const alignmentThreshold = 2500; // Seuil d'alignement (tous les 2500 tours)
-        const alignmentCards = [11, 21, 18, 16, 15, 2, 14]; // Cartes qui peuvent s'aligner
-        let lastAlignmentCard = null; // Dernière carte alignée
+        // Variables de drag
+        let isDraggingTrack = false;
+        let isDraggingBackground = false;
+        let lastMouseX = 0;
+        let lastMouseY = 0;
+        let dragMode = 'track';
+        
+        let isDraggingPanel = false;
+        let startX = 0;
+        let startY = 0;
+        let startLeft = 0;
+        let startTop = 0;
+        
+        let autoRestartInterval = null;
 
-        let attempts = 0;
-        let wins = 0;
-        let quantities = {
-            bronze: 1,
-            silver: 1,
-            gold: 1
-        };
-
-        // Fonction pour sauvegarder les données du jeu
-        function saveGameData() {
-            const gameData = {
-                attempts: attempts,
-                wins: wins,
-                dropPool: dropPool,
-                dropCounter: dropCounter,
-                alignmentCounter: alignmentCounter,
-                lastAlignmentCard: lastAlignmentCard,
-                quantities: quantities
-            };
+        // Initialisation
+        function init() {
+            resizeCanvas();
+            window.addEventListener('resize', resizeCanvas);
             
-            localStorage.setItem('cardGameSave', JSON.stringify(gameData));
-            console.log('Sauvegarde effectuée:', gameData);
+            // Setup drag pour le panel
+            const dragHandle = document.getElementById('panel-header-drag');
+            dragHandle.addEventListener('mousedown', startPanelDrag);
             
-            // Afficher l'indicateur de sauvegarde
-            showSaveIndicator();
+            // Setup drag pour la piste, fond et chemin
+            canvas.addEventListener('mousedown', startDrag);
+            window.addEventListener('mousemove', handleDrag);
+            window.addEventListener('mouseup', stopDrag);
+            
+            // Initialiser les affichages
+            document.getElementById('width-display').innerText = `${trackWidthPercent}%`;
+            document.getElementById('height-display').innerText = `${trackHeightPercent}%`;
+            document.getElementById('bg-opacity-display').innerText = backgroundOpacity.toFixed(1);
+            document.getElementById('bg-blur-display').innerText = `${backgroundBlur}px`;
+            document.getElementById('path-width-display').innerText = `${pathWidth}px`;
+            document.getElementById('path-padding-display').innerText = `${pathPadding}px`;
+            document.getElementById('path-curve-display').innerText = `${pathCurve}px`;
+            
+            // Initialiser les nœuds du chemin
+            generateDefaultPath();
+            updatePathInfoDisplay();
+            
+            // Charger les paramètres sauvegardés
+            loadSettings();
+            
+            // Démarrer la sauvegarde automatique périodique
+            startAutoSaveInterval();
+            
+            // Dessiner la scène initiale
+            draw();
+            
+            // Tester la connexion au serveur
+            setTimeout(testServerConnection, 1000);
         }
 
-        // Fonction pour charger les données du jeu
-        function loadGameData() {
-            const savedData = localStorage.getItem('cardGameSave');
+        // SAUVEGARDE AUTOMATIQUE COMPLÈTE
+        function getFullSettings() {
+            return {
+                // Paramètres du chemin
+                pathWidth,
+                pathColor,
+                pathPadding,
+                pathCurve,
+                path3DEnabled,
+                showPath,
+                pathNodes: pathNodes.map(node => ({ x: node.x, y: node.y })),
+                
+                // Paramètres de la piste
+                trackScale,
+                trackX,
+                trackY,
+                trackWidthPercent,
+                trackHeightPercent,
+                globalBallOffsetY,
+                trackRows,
+                showDebugPath,
+                
+                // Paramètres du fond
+                backgroundOpacity,
+                backgroundBlur,
+                backgroundScale,
+                backgroundX,
+                backgroundY,
+                
+                // Images (sous forme de DataURL si disponibles)
+                trackImageData: trackImage ? canvasToDataURL(trackImage) : null,
+                backgroundImageData: backgroundImage ? canvasToDataURL(backgroundImage) : null,
+                
+                // Données de l'interface
+                registeredNames: [...registeredNames],
+                waitingQueue: [...waitingQueue],
+                winnersHistory: [...winnersHistory],
+                players: players.map(p => ({
+                    id: p.id,
+                    name: p.name,
+                    color: p.color,
+                    progress: p.progress,
+                    isFinished: p.isFinished
+                })),
+                
+                // État du jeu
+                isRacing,
+                winner: winner ? {
+                    name: winner.name,
+                    color: winner.color
+                } : null,
+                
+                // URLs des images
+                trackUrl: document.getElementById('track-url-input').value,
+                backgroundUrl: document.getElementById('background-url-input').value,
+                
+                // Méta-données
+                savedAt: new Date().toISOString(),
+                version: '2.0'
+            };
+        }
+
+        function canvasToDataURL(image) {
+            try {
+                const tempCanvas = document.createElement('canvas');
+                tempCanvas.width = image.width;
+                tempCanvas.height = image.height;
+                const tempCtx = tempCanvas.getContext('2d');
+                tempCtx.drawImage(image, 0, 0);
+                return tempCanvas.toDataURL('image/png');
+            } catch (e) {
+                console.error("Erreur conversion image:", e);
+                return null;
+            }
+        }
+
+        function dataURLToImage(dataURL) {
+            return new Promise((resolve, reject) => {
+                if (!dataURL) {
+                    resolve(null);
+                    return;
+                }
+                const img = new Image();
+                img.onload = () => resolve(img);
+                img.onerror = reject;
+                img.src = dataURL;
+            });
+        }
+
+        function saveSettings() {
+            if (saveThrottleTimeout) {
+                clearTimeout(saveThrottleTimeout);
+            }
             
-            if (savedData) {
+            saveThrottleTimeout = setTimeout(() => {
                 try {
-                    const gameData = JSON.parse(savedData);
+                    const settings = getFullSettings();
+                    localStorage.setItem(STORAGE_KEY, JSON.stringify(settings));
                     
-                    attempts = gameData.attempts || 0;
-                    wins = gameData.wins || 0;
-                    dropPool = gameData.dropPool || 0;
-                    dropCounter = gameData.dropCounter || 0;
-                    alignmentCounter = gameData.alignmentCounter || 0;
-                    lastAlignmentCard = gameData.lastAlignmentCard || null;
-                    quantities = gameData.quantities || {
-                        bronze: 1,
-                        silver: 1,
-                        gold: 1
-                    };
+                    // Mettre à jour l'affichage du temps de sauvegarde
+                    const now = new Date();
+                    lastSaveTime = now;
+                    document.getElementById('last-save-time').textContent = 
+                        now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
                     
-                    console.log('Données chargées:', gameData);
-                    return true;
-                } catch (error) {
-                    console.error('Erreur lors du chargement des données:', error);
-                    return false;
+                    showSaveIndicator();
+                    console.log("✅ Sauvegarde complète effectuée");
+                } catch (e) {
+                    console.error("❌ Erreur sauvegarde:", e);
+                    // Essayer une sauvegarde légère sans images
+                    try {
+                        const lightSettings = getFullSettings();
+                        lightSettings.trackImageData = null;
+                        lightSettings.backgroundImageData = null;
+                        localStorage.setItem(STORAGE_KEY, JSON.stringify(lightSettings));
+                        console.log("✅ Sauvegarde légère effectuée");
+                    } catch (e2) {
+                        console.error("❌ Échec sauvegarde légère:", e2);
+                    }
+                }
+            }, SAVE_THROTTLE);
+        }
+
+        async function loadSettings() {
+            try {
+                const saved = localStorage.getItem(STORAGE_KEY);
+                if (!saved) {
+                    console.log("Aucune sauvegarde trouvée");
+                    return;
+                }
+                
+                const settings = JSON.parse(saved);
+                console.log("Chargement des paramètres sauvegardés...");
+                
+                // Restaurer les paramètres du chemin
+                if (settings.pathWidth !== undefined) {
+                    pathWidth = settings.pathWidth;
+                    document.getElementById('path-width-display').innerText = `${pathWidth}px`;
+                }
+                if (settings.pathColor) {
+                    pathColor = settings.pathColor;
+                    document.getElementById('path-color-input').value = pathColor;
+                }
+                if (settings.pathPadding !== undefined) {
+                    pathPadding = settings.pathPadding;
+                    document.getElementById('path-padding-display').innerText = `${pathPadding}px`;
+                }
+                if (settings.pathCurve !== undefined) {
+                    pathCurve = settings.pathCurve;
+                    document.getElementById('path-curve-display').innerText = `${pathCurve}px`;
+                }
+                if (settings.path3DEnabled !== undefined) {
+                    path3DEnabled = settings.path3DEnabled;
+                    const btn3d = document.getElementById('btn-3d');
+                    btn3d.innerText = path3DEnabled ? 'ON' : 'OFF';
+                    btn3d.style.background = path3DEnabled ? '#22c55e' : '#f3f4f6';
+                    btn3d.style.color = path3DEnabled ? 'white' : '#6b7280';
+                }
+                if (settings.showPath !== undefined) {
+                    showPath = settings.showPath;
+                    const btnShowPath = document.getElementById('btn-show-path');
+                    btnShowPath.innerText = showPath ? 'ON' : 'OFF';
+                    btnShowPath.style.background = showPath ? '#22c55e' : '#f3f4f6';
+                    btnShowPath.style.color = showPath ? 'white' : '#6b7280';
+                }
+                if (settings.pathNodes && settings.pathNodes.length > 0) {
+                    pathNodes = settings.pathNodes;
+                }
+                
+                // Restaurer les paramètres de la piste
+                if (settings.trackScale !== undefined) {
+                    trackScale = settings.trackScale;
+                    document.getElementById('scale-display').innerText = trackScale.toFixed(2);
+                }
+                if (settings.trackX !== undefined) trackX = settings.trackX;
+                if (settings.trackY !== undefined) trackY = settings.trackY;
+                if (settings.trackWidthPercent !== undefined) {
+                    trackWidthPercent = settings.trackWidthPercent;
+                    document.getElementById('width-display').innerText = `${trackWidthPercent}%`;
+                }
+                if (settings.trackHeightPercent !== undefined) {
+                    trackHeightPercent = settings.trackHeightPercent;
+                    document.getElementById('height-display').innerText = `${trackHeightPercent}%`;
+                }
+                if (settings.globalBallOffsetY !== undefined) {
+                    globalBallOffsetY = settings.globalBallOffsetY;
+                    document.getElementById('offset-display').innerText = globalBallOffsetY;
+                }
+                if (settings.trackRows !== undefined) {
+                    trackRows = settings.trackRows;
+                    document.getElementById('rows-display').innerText = trackRows;
+                }
+                if (settings.showDebugPath !== undefined) {
+                    showDebugPath = settings.showDebugPath;
+                    const btnDebug = document.getElementById('btn-debug');
+                    btnDebug.innerText = showDebugPath ? "👁️ On" : "👁️ Off";
+                    if (showDebugPath) {
+                        btnDebug.classList.add('text-indigo-600');
+                        btnDebug.style.borderColor = '#6366f1';
+                    }
+                }
+                
+                // Restaurer les paramètres du fond
+                if (settings.backgroundOpacity !== undefined) {
+                    backgroundOpacity = settings.backgroundOpacity;
+                    document.getElementById('bg-opacity-display').innerText = backgroundOpacity.toFixed(1);
+                }
+                if (settings.backgroundBlur !== undefined) {
+                    backgroundBlur = settings.backgroundBlur;
+                    document.getElementById('bg-blur-display').innerText = `${backgroundBlur}px`;
+                }
+                if (settings.backgroundX !== undefined) backgroundX = settings.backgroundX;
+                if (settings.backgroundY !== undefined) backgroundY = settings.backgroundY;
+                
+                // Restaurer les images
+                if (settings.trackImageData) {
+                    try {
+                        trackImage = await dataURLToImage(settings.trackImageData);
+                        console.log("✅ Piste restaurée");
+                    } catch (e) {
+                        console.error("❌ Erreur chargement piste:", e);
+                    }
+                }
+                
+                if (settings.backgroundImageData) {
+                    try {
+                        backgroundImage = await dataURLToImage(settings.backgroundImageData);
+                        console.log("✅ Fond restauré");
+                    } catch (e) {
+                        console.error("❌ Erreur chargement fond:", e);
+                    }
+                }
+                
+                // Restaurer les données
+                if (settings.registeredNames) registeredNames = settings.registeredNames;
+                if (settings.waitingQueue) waitingQueue = settings.waitingQueue;
+                if (settings.winnersHistory) winnersHistory = settings.winnersHistory;
+                
+                // Restaurer les joueurs
+                if (settings.players && settings.players.length > 0) {
+                    players = settings.players.map(pData => {
+                        const player = new Player(pData.id, pData.name);
+                        player.color = pData.color || player.color;
+                        player.progress = pData.progress || 0;
+                        player.isFinished = pData.isFinished || false;
+                        return player;
+                    });
+                }
+                
+                // Restaurer l'état du jeu
+                if (settings.isRacing !== undefined) isRacing = settings.isRacing;
+                if (settings.winner && settings.winner.name) {
+                    winner = players.find(p => p.name === settings.winner.name) || 
+                            new Player(0, settings.winner.name);
+                    winner.color = settings.winner.color;
+                }
+                
+                // Restaurer les URLs
+                if (settings.trackUrl) document.getElementById('track-url-input').value = settings.trackUrl;
+                if (settings.backgroundUrl) document.getElementById('background-url-input').value = settings.backgroundUrl;
+                
+                // Mettre à jour l'affichage du temps de sauvegarde
+                if (settings.savedAt) {
+                    const saveDate = new Date(settings.savedAt);
+                    document.getElementById('last-save-time').textContent = 
+                        saveDate.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+                }
+                
+                // Mettre à jour l'interface
+                renderPlayerList();
+                updateHistoryDisplay();
+                updateQueueDisplay();
+                updatePathInfoDisplay();
+                
+                console.log("✅ Chargement terminé");
+                
+                // Redessiner
+                draw();
+                
+            } catch (e) {
+                console.error("❌ Erreur lors du chargement:", e);
+                // En cas d'erreur, charger une sauvegarde de secours
+                try {
+                    const backup = localStorage.getItem(STORAGE_KEY + '_backup');
+                    if (backup) {
+                        console.log("Tentative de chargement depuis backup...");
+                        localStorage.setItem(STORAGE_KEY, backup);
+                        location.reload();
+                    }
+                } catch (e2) {
+                    console.error("❌ Échec chargement backup:", e2);
                 }
             }
-            return false;
         }
 
-        // Fonction pour afficher l'indicateur de sauvegarde
-        function showSaveIndicator() {
-            const indicator = document.getElementById('saveIndicator');
-            indicator.classList.remove('show');
-            void indicator.offsetWidth; // Réinitialise l'animation
-            indicator.classList.add('show');
-        }
-
-        // Fonction pour sauvegarde manuelle
-        function manualSave() {
-            saveGameData();
-        }
-
-        // Fonction pour mettre à jour l'affichage du pool de drop
-        function updateDropPoolDisplay() {
-            document.getElementById('dropPoolValue').textContent = `${dropPool} pièces`;
-            
-            if (dropPool > 0) {
-                document.getElementById('dropPoolInfo').textContent = `Chance de gagner ${dropPool} pièces`;
-            } else {
-                document.getElementById('dropPoolInfo').textContent = `Chance de gagner des pièces`;
-            }
-        }
-
-        // Fonction pour mettre à jour l'affichage du compteur d'alignement
-        function updateAlignmentCounterDisplay() {
-            const remaining = alignmentThreshold - alignmentCounter;
-            
-            // Cacher la valeur exacte aux utilisateurs
-            if (remaining <= 100) {
-                document.getElementById('alignmentCounterValue').textContent = `${remaining}`;
-            } else {
-                document.getElementById('alignmentCounterValue').textContent = `?`;
+        function startAutoSaveInterval() {
+            if (autoSaveInterval) {
+                clearInterval(autoSaveInterval);
             }
             
-            if (remaining <= 0) {
-                document.getElementById('alignmentCounterInfo').textContent = `BONUS DISPONIBLE !`;
-            } else if (remaining <= 100) {
-                document.getElementById('alignmentCounterInfo').textContent = `Prochain bonus proche`;
-            } else {
-                document.getElementById('alignmentCounterInfo').textContent = `Prochain bonus`;
-            }
-        }
-
-        // Fonction pour mettre à jour l'affichage du dernier alignement
-        function updateLastAlignmentDisplay() {
-            if (lastAlignmentCard) {
-                document.getElementById('lastAlignmentValue').textContent = `Carte ${lastAlignmentCard}`;
-                document.getElementById('lastAlignmentInfo').textContent = `Bonus spécial activé`;
-            } else {
-                document.getElementById('lastAlignmentValue').textContent = `Aucun`;
-                document.getElementById('lastAlignmentInfo').textContent = `Bonus spécial activé`;
-            }
-        }
-
-        // Fonction pour gérer le système de drop
-        function handleDropSystem() {
-            // Incrémenter le compteur de drop
-            dropCounter++;
+            // Sauvegarde toutes les 10 secondes
+            autoSaveInterval = setInterval(() => {
+                if (document.visibilityState === 'visible') {
+                    saveSettings();
+                }
+            }, AUTO_SAVE_INTERVAL);
             
-            // Ajouter 1 pièce au pool tous les 10 tours
-            if (dropCounter % 10 === 0) {
-                dropPool += 1;
-                updateDropPoolDisplay();
-            }
-            
-            // Chance de 1 sur 2500 de gagner les pièces du pool
-            if (dropPool > 0 && Math.random() < 1/2500) {
-                const coinsWon = dropPool;
-                
-                // Afficher l'animation de drop
-                showDropAnimation(coinsWon);
-                
-                // Réinitialiser le pool
-                dropPool = 0;
-                updateDropPoolDisplay();
-                
-                // Sauvegarder après un drop gagné
-                saveGameData();
-                
-                return true;
-            }
-            
-            return false;
-        }
-
-        // Fonction pour afficher l'animation de drop
-        function showDropAnimation(coinsWon) {
-            const dropAnimation = document.createElement('div');
-            dropAnimation.className = 'drop-animation';
-            
-            dropAnimation.innerHTML = `
-                <div class="drop-popup">
-                    <div class="drop-popup-icon">
-                        <img src="https://i.ibb.co/7JsBRrCn/IMG-5885.png" alt="Pièces" style="width: 80px; height: 80px;">
-                    </div>
-                    <div class="drop-popup-title">DROP GAGNÉ !</div>
-                    <div class="drop-popup-description">Vous avez remporté ${coinsWon} pièces du pool de drop !</div>
-                    <button class="drop-close">CONTINUER</button>
-                </div>
-            `;
-            
-            document.body.appendChild(dropAnimation);
-            
-            const closeButton = dropAnimation.querySelector('.drop-close');
-            closeButton.addEventListener('click', () => {
-                document.body.removeChild(dropAnimation);
+            // Sauvegarde quand la page est quittée
+            window.addEventListener('beforeunload', () => {
+                saveSettings();
+                // Créer un backup
+                try {
+                    const settings = getFullSettings();
+                    localStorage.setItem(STORAGE_KEY + '_backup', JSON.stringify(settings));
+                } catch (e) {
+                    console.error("Erreur création backup:", e);
+                }
             });
+            
+            // Sauvegarde quand la page devient invisible
+            document.addEventListener('visibilitychange', () => {
+                if (document.visibilityState === 'hidden') {
+                    saveSettings();
+                }
+            });
+        }
+
+        function manualSave() {
+            saveSettings();
+            const indicator = document.getElementById('save-indicator');
+            indicator.textContent = "💾 Sauvegarde manuelle effectuée";
+            indicator.style.display = 'block';
+            setTimeout(() => {
+                indicator.style.display = 'none';
+            }, 3000);
+        }
+
+        function showSaveIndicator() {
+            const indicator = document.getElementById('save-indicator');
+            indicator.style.display = 'block';
             
             setTimeout(() => {
-                if (document.body.contains(dropAnimation)) {
-                    document.body.removeChild(dropAnimation);
-                }
-            }, 5000);
+                indicator.style.display = 'none';
+            }, 2000);
         }
 
-        // Fonction pour gérer l'alignement automatique
-        function handleAlignmentSystem() {
-            // Incrémenter le compteur d'alignement
-            alignmentCounter++;
-            updateAlignmentCounterDisplay();
+        // Fonctions pour le chemin des bulles
+        function generateDefaultPath() {
+            pathNodes = [];
+            const width = canvas.width;
+            const height = canvas.height;
+            const effectiveHeight = height - pathPadding * 2;
+            const rowHeight = effectiveHeight / (trackRows - 1);
             
-            // Vérifier si on a atteint le seuil d'alignement
-            if (alignmentCounter >= alignmentThreshold) {
-                // Réinitialiser le compteur
-                alignmentCounter = 0;
-                updateAlignmentCounterDisplay();
+            for (let row = 0; row < trackRows; row++) {
+                let y = pathPadding + row * rowHeight + globalBallOffsetY;
                 
-                // Choisir une carte au hasard parmi celles qui peuvent s'aligner
-                lastAlignmentCard = alignmentCards[Math.floor(Math.random() * alignmentCards.length)];
-                updateLastAlignmentDisplay();
-                
-                // Sauvegarder après un alignement
-                saveGameData();
-                
-                // Retourner la carte alignée
-                return lastAlignmentCard;
+                if (row % 2 === 0) {
+                    // Gauche vers droite
+                    pathNodes.push({ x: pathPadding, y: y });
+                    pathNodes.push({ x: width - pathPadding, y: y });
+                } else {
+                    // Droite vers gauche
+                    pathNodes.push({ x: width - pathPadding, y: y });
+                    pathNodes.push({ x: pathPadding, y: y });
+                }
             }
             
-            return null;
+            updatePathInfoDisplay();
+            saveSettings();
         }
 
-        function selectQuantity(btn, boosterType, quantity) {
-            const parent = btn.parentElement;
-            parent.querySelectorAll('.quantity-btn').forEach(b => b.classList.remove('active'));
-            btn.classList.add('active');
-            quantities[boosterType] = quantity;
+        // MODE CRÉATION DE POINTS
+        function togglePathCreationMode() {
+            // Si le mode édition est actif, le désactiver d'abord
+            if (pathEditMode) {
+                togglePathEditMode();
+            }
             
-            // Sauvegarder après changement de quantité
-            saveGameData();
-        }
-
-        function drawCards(count, boosterType) {
-            const cards = [];
-            const quadChance = boosterChances[boosterType];
+            pathCreationMode = !pathCreationMode;
+            const btn = document.getElementById('btn-create-path');
+            const controls = document.getElementById('path-creation-controls');
             
-            // Vérifier si on doit forcer un carré selon la probabilité du booster
-            const forceQuad = Math.random() < quadChance;
-            
-            // Vérifier si une carte doit s'aligner automatiquement
-            const alignmentCard = handleAlignmentSystem();
-            let hasAlignment = false;
-            
-            if (forceQuad) {
-                // Forcer un carré (4 cartes identiques)
-                const quadCard = Math.floor(Math.random() * TOTAL_CARD_TYPES) + 1;
+            if (pathCreationMode) {
+                btn.innerHTML = '💾 Fin création';
+                btn.style.background = '#dc2626';
+                btn.style.color = 'white';
+                controls.style.display = 'flex';
                 
-                // Ajouter 4 cartes identiques
-                for (let i = 0; i < 4; i++) {
-                    cards.push(quadCard);
-                }
+                // Activer le clic sur le canvas pour ajouter des points
+                canvas.addEventListener('click', addPathPointOnClick);
+                canvas.classList.add('creating-path');
                 
-                // Ajouter le reste des cartes aléatoirement
-                for (let i = 4; i < count; i++) {
-                    const cardNum = Math.floor(Math.random() * TOTAL_CARD_TYPES) + 1;
-                    cards.push(cardNum);
-                }
+                // Afficher les points existants
+                showAllPathPoints();
                 
-                // Mélanger les cartes
-                return { cards: shuffleArray(cards), alignment: null };
-            } else if (alignmentCard) {
-                // Une carte s'aligne automatiquement
-                hasAlignment = true;
-                
-                // Ajouter 4 cartes identiques (la carte alignée)
-                for (let i = 0; i < 4; i++) {
-                    cards.push(alignmentCard);
-                }
-                
-                // Ajouter le reste des cartes aléatoirement
-                for (let i = 4; i < count; i++) {
-                    const cardNum = Math.floor(Math.random() * TOTAL_CARD_TYPES) + 1;
-                    cards.push(cardNum);
-                }
-                
-                // Mélanger les cartes
-                return { cards: shuffleArray(cards), alignment: alignmentCard };
+                alert("Mode création activé ! Cliquez sur la piste pour ajouter des points.");
             } else {
-                // Tirage normal - très peu de chance d'obtenir un carré naturellement
-                for (let i = 0; i < count; i++) {
-                    const cardNum = Math.floor(Math.random() * TOTAL_CARD_TYPES) + 1;
-                    cards.push(cardNum);
+                btn.innerHTML = '📍 Créer des points';
+                btn.style.background = '#dbeafe';
+                btn.style.color = '#1e40af';
+                controls.style.display = 'none';
+                
+                // Désactiver le clic
+                canvas.removeEventListener('click', addPathPointOnClick);
+                canvas.classList.remove('creating-path');
+                
+                // Nettoyer l'affichage des points
+                hideAllPathPoints();
+                
+                // Sauvegarder si assez de points
+                if (pathNodes.length >= 2) {
+                    saveSettings();
                 }
-                
-                // Vérifier si on a accidentellement obtenu un carré
-                const hasQuad = checkForQuad(cards);
-                
-                // Si on a un carré par accident, on refait le tirage pour éviter cela
-                if (hasQuad) {
-                    return drawCards(count, boosterType);
-                }
-                
-                return { cards, alignment: null };
+            }
+            
+            draw();
+        }
+
+        function addPathPointOnClick(event) {
+            if (!pathCreationMode) return;
+            
+            const rect = canvas.getBoundingClientRect();
+            const x = event.clientX - rect.left;
+            const y = event.clientY - rect.top;
+            
+            pathNodes.push({ x, y });
+            
+            updatePathInfoDisplay();
+            showAllPathPoints();
+            drawPathWithPoints();
+            saveSettings();
+        }
+
+        function addPathPointAtCenter() {
+            const centerX = canvas.width / 2;
+            const centerY = canvas.height / 2;
+            
+            pathNodes.push({ x: centerX, y: centerY });
+            updatePathInfoDisplay();
+            showAllPathPoints();
+            drawPathWithPoints();
+            saveSettings();
+        }
+
+        function clearPathPoints() {
+            if (confirm("Voulez-vous vraiment supprimer tous les points du chemin ?")) {
+                pathNodes = [];
+                updatePathInfoDisplay();
+                hideAllPathPoints();
+                draw();
+                saveSettings();
             }
         }
 
-        function shuffleArray(array) {
-            const newArray = [...array];
-            for (let i = newArray.length - 1; i > 0; i--) {
-                const j = Math.floor(Math.random() * (i + 1));
-                [newArray[i], newArray[j]] = [newArray[j], newArray[i]];
+        function autoGeneratePath() {
+            if (confirm("Générer un chemin automatique ? Cela effacera les points actuels.")) {
+                generateDefaultPath();
+                showAllPathPoints();
+                draw();
+                saveSettings();
             }
-            return newArray;
         }
 
-        function checkForQuad(cards) {
-            const cardCounts = {};
-            cards.forEach(card => {
-                cardCounts[card] = (cardCounts[card] || 0) + 1;
+        function showAllPathPoints() {
+            hideAllPathPoints();
+            
+            pathNodes.forEach((point, index) => {
+                const nodeEl = document.createElement('div');
+                nodeEl.className = 'path-node';
+                if (index === 0) nodeEl.classList.add('path-node-start');
+                if (index === pathNodes.length - 1 && pathNodes.length > 1) nodeEl.classList.add('path-node-end');
+                nodeEl.style.left = (point.x - 12) + 'px';
+                nodeEl.style.top = (point.y - 12) + 'px';
+                nodeEl.dataset.index = index;
+                nodeEl.title = `Point ${index + 1}`;
+                
+                // Ajouter un numéro
+                const number = document.createElement('div');
+                number.className = 'path-point-number';
+                number.innerText = (index + 1).toString();
+                nodeEl.appendChild(number);
+                
+                // Rendre le point déplaçable
+                nodeEl.addEventListener('mousedown', startPathPointDrag);
+                
+                document.getElementById('game-container').appendChild(nodeEl);
             });
-            
-            for (const [card, count] of Object.entries(cardCounts)) {
-                if (count >= 4) {
-                    return parseInt(card);
-                }
-            }
-            return null;
         }
 
-        function openBooster(cardCount, boosterName) {
-            const boosterType = boosterName.toLowerCase();
-            const quantity = quantities[boosterType] || 1;
+        function hideAllPathPoints() {
+            document.querySelectorAll('.path-node').forEach(node => node.remove());
+        }
+
+        function startPathPointDrag(e) {
+            if (!pathCreationMode) return;
             
-            if (quantity === 1) {
-                // Tirage simple - affiche les cartes
-                attempts++;
-                
-                // Gérer le système de drop
-                const dropWon = handleDropSystem();
-                
-                const result = drawCards(cardCount, boosterType);
-                const cards = result.cards;
-                const alignmentCard = result.alignment;
-                const quadCard = checkForQuad(cards);
-                
-                if (quadCard || alignmentCard) {
-                    wins++;
-                }
-                
-                updateStats();
-                // Sauvegarder après un tirage
-                saveGameData();
-                // Passer l'information du drop et de l'alignement à l'affichage
-                displaySingleDraw(cards, quadCard, boosterName, dropWon, alignmentCard);
+            const index = parseInt(e.target.dataset.index);
+            draggingNode = index;
+            dragMode = 'path';
+            
+            e.target.classList.add('dragging');
+            document.addEventListener('mousemove', updatePathPointPosition);
+            document.addEventListener('mouseup', stopPathPointDrag);
+        }
+
+        function updatePathPointPosition(e) {
+            if (draggingNode === null) return;
+            
+            const rect = canvas.getBoundingClientRect();
+            const x = e.clientX - rect.left;
+            const y = e.clientY - rect.top;
+            
+            pathNodes[draggingNode] = { x, y };
+            
+            const pointEl = document.querySelector(`.path-node[data-index="${draggingNode}"]`);
+            if (pointEl) {
+                pointEl.style.left = (x - 12) + 'px';
+                pointEl.style.top = (y - 12) + 'px';
+            }
+            
+            drawPathWithPoints();
+        }
+
+        function stopPathPointDrag() {
+            draggingNode = null;
+            document.querySelectorAll('.path-node').forEach(node => node.classList.remove('dragging'));
+            document.removeEventListener('mousemove', updatePathPointPosition);
+            document.removeEventListener('mouseup', stopPathPointDrag);
+            
+            saveSettings();
+        }
+
+        function updatePathInfoDisplay() {
+            document.getElementById('path-points-count').textContent = pathNodes.length;
+            
+            const statusEl = document.getElementById('path-status');
+            if (pathNodes.length >= 2) {
+                statusEl.textContent = '✅ Chemin valide';
+                statusEl.style.color = '#10b981';
+            } else if (pathNodes.length === 1) {
+                statusEl.textContent = '⚠️ Ajoutez un autre point';
+                statusEl.style.color = '#f59e0b';
             } else {
-                // Tirages multiples - affiche tous les tirages
-                let totalWins = 0;
-                let allDraws = [];
-                let dropWon = false;
-                let alignmentWon = false;
-                
-                for (let i = 0; i < quantity; i++) {
-                    attempts++;
+                statusEl.textContent = '⚠️ Ajoutez au moins 2 points';
+                statusEl.style.color = '#ef4444';
+            }
+        }
+
+        // Fonctions ajustements chemin
+        function adjustPathWidth(delta) {
+            pathWidth = Math.max(2, Math.min(100, pathWidth + delta));
+            document.getElementById('path-width-display').innerText = `${pathWidth}px`;
+            draw();
+            saveSettings();
+        }
+
+        function changePathColor() {
+            pathColor = document.getElementById('path-color-input').value;
+            draw();
+            saveSettings();
+        }
+
+        function resetPathColor() {
+            pathColor = '#e2e8f0';
+            document.getElementById('path-color-input').value = pathColor;
+            draw();
+            saveSettings();
+        }
+
+        function adjustPathPadding(delta) {
+            pathPadding = Math.max(10, Math.min(200, pathPadding + delta));
+            document.getElementById('path-padding-display').innerText = `${pathPadding}px`;
+            if (!pathCreationMode) {
+                generateDefaultPath();
+            }
+            draw();
+            saveSettings();
+        }
+
+        function adjustPathCurve(delta) {
+            pathCurve = Math.max(0, Math.min(50, pathCurve + delta));
+            document.getElementById('path-curve-display').innerText = `${pathCurve}px`;
+            draw();
+            saveSettings();
+        }
+
+        function togglePath3D() {
+            path3DEnabled = !path3DEnabled;
+            const btn = document.getElementById('btn-3d');
+            btn.innerText = path3DEnabled ? 'ON' : 'OFF';
+            btn.style.background = path3DEnabled ? '#22c55e' : '#f3f4f6';
+            btn.style.color = path3DEnabled ? 'white' : '#6b7280';
+            draw();
+            saveSettings();
+        }
+
+        function togglePathVisibility() {
+            showPath = !showPath;
+            const btn = document.getElementById('btn-show-path');
+            btn.innerText = showPath ? 'ON' : 'OFF';
+            btn.style.background = showPath ? '#22c55e' : '#f3f4f6';
+            btn.style.color = showPath ? 'white' : '#6b7280';
+            draw();
+            saveSettings();
+        }
+
+        function togglePathEditMode() {
+            if (pathCreationMode) {
+                togglePathCreationMode();
+            }
+            
+            pathEditMode = !pathEditMode;
+            const btn = document.getElementById('btn-edit-path');
+            
+            if (pathEditMode) {
+                btn.innerText = "💾 Sauvegarder chemin";
+                btn.style.background = '#dc2626';
+                btn.style.color = 'white';
+                showAllPathPoints();
+            } else {
+                btn.innerText = "✏️ Éditer le chemin";
+                btn.style.background = '#bbf7d0';
+                btn.style.color = '#065f46';
+                hideAllPathPoints();
+                saveSettings();
+            }
+            
+            draw();
+        }
+
+        function resetPathSettings() {
+            pathWidth = 40;
+            pathColor = '#e2e8f0';
+            pathPadding = 40;
+            pathCurve = 0;
+            path3DEnabled = false;
+            showPath = true;
+            
+            document.getElementById('path-width-display').innerText = `${pathWidth}px`;
+            document.getElementById('path-color-input').value = pathColor;
+            document.getElementById('path-padding-display').innerText = `${pathPadding}px`;
+            document.getElementById('path-curve-display').innerText = `${pathCurve}px`;
+            
+            const btn3d = document.getElementById('btn-3d');
+            btn3d.innerText = 'OFF';
+            btn3d.style.background = '#f3f4f6';
+            btn3d.style.color = '#6b7280';
+            
+            const btnShowPath = document.getElementById('btn-show-path');
+            btnShowPath.innerText = 'ON';
+            btnShowPath.style.background = '#22c55e';
+            btnShowPath.style.color = 'white';
+            
+            generateDefaultPath();
+            draw();
+            saveSettings();
+        }
+
+        // Dessin du chemin
+        function drawPathWithPoints() {
+            if (!showPath || pathNodes.length < 2) return;
+
+            ctx.lineCap = 'round';
+            ctx.lineJoin = 'round';
+            ctx.lineWidth = pathWidth;
+            
+            if (path3DEnabled) {
+                ctx.strokeStyle = 'rgba(0, 0, 0, 0.3)';
+                ctx.beginPath();
+                for (let i = 0; i < pathNodes.length - 1; i++) {
+                    const p1 = pathNodes[i];
+                    const p2 = pathNodes[i + 1];
                     
-                    // Gérer le système de drop (seulement une fois par lot de tirages)
-                    if (!dropWon) {
-                        dropWon = handleDropSystem();
-                    }
-                    
-                    const result = drawCards(cardCount, boosterType);
-                    const cards = result.cards;
-                    const alignmentCard = result.alignment;
-                    const quadCard = checkForQuad(cards);
-                    
-                    if (quadCard || alignmentCard) {
-                        wins++;
-                        totalWins++;
-                    }
-                    
-                    allDraws.push({ cards, quadCard, alignmentCard });
-                    
-                    // Marquer si un alignement a eu lieu
-                    if (alignmentCard) {
-                        alignmentWon = true;
-                    }
+                    if (i === 0) ctx.moveTo(p1.x, p1.y + 2);
+                    ctx.lineTo(p2.x, p2.y + 2);
                 }
+                ctx.stroke();
                 
-                updateStats();
-                // Sauvegarder après des tirages multiples
-                saveGameData();
-                // Passer l'information du drop et de l'alignement à l'affichage
-                displayMultipleDraws(quantity, totalWins, allDraws, boosterName, dropWon, alignmentWon);
-            }
-        }
-
-        function displaySingleDraw(cards, quadCard, boosterName, dropWon, alignmentCard) {
-            const container = document.getElementById('cardsContainer');
-            const resultMessage = document.getElementById('resultMessage');
-            container.innerHTML = '';
-
-            if (quadCard) {
-                resultMessage.textContent = `CARRÉ GAGNÉ !`;
-                resultMessage.className = 'result-message win';
-            } else if (alignmentCard) {
-                resultMessage.textContent = `BONUS SPÉCIAL !`;
-                resultMessage.className = 'result-message win';
-            } else if (dropWon) {
-                resultMessage.textContent = `DROP GAGNÉ !`;
-                resultMessage.className = 'result-message win';
+                ctx.strokeStyle = pathColor;
+                ctx.beginPath();
+                for (let i = 0; i < pathNodes.length - 1; i++) {
+                    const p1 = pathNodes[i];
+                    const p2 = pathNodes[i + 1];
+                    
+                    if (i === 0) ctx.moveTo(p1.x, p1.y);
+                    ctx.lineTo(p2.x, p2.y);
+                }
+                ctx.stroke();
+                
+                ctx.strokeStyle = 'rgba(255, 255, 255, 0.3)';
+                ctx.lineWidth = pathWidth / 4;
+                ctx.beginPath();
+                for (let i = 0; i < pathNodes.length - 1; i++) {
+                    const p1 = pathNodes[i];
+                    const p2 = pathNodes[i + 1];
+                    
+                    if (i === 0) ctx.moveTo(p1.x, p1.y - 1);
+                    ctx.lineTo(p2.x, p2.y - 1);
+                }
+                ctx.stroke();
             } else {
-                resultMessage.textContent = `Pas de carré cette fois...`;
-                resultMessage.className = 'result-message lose';
-            }
-
-            const cardCounts = {};
-            cards.forEach(card => {
-                cardCounts[card] = (cardCounts[card] || 0) + 1;
-            });
-
-            cards.forEach((cardNum, index) => {
-                setTimeout(() => {
-                    const cardDiv = document.createElement('div');
-                    cardDiv.className = 'card';
-                    if (quadCard === cardNum || alignmentCard === cardNum) {
-                        cardDiv.classList.add('is-quad');
+                ctx.strokeStyle = pathColor;
+                ctx.beginPath();
+                for (let i = 0; i < pathNodes.length - 1; i++) {
+                    const p1 = pathNodes[i];
+                    const p2 = pathNodes[i + 1];
+                    
+                    if (i === 0) {
+                        ctx.moveTo(p1.x, p1.y);
                     }
                     
-                    cardDiv.innerHTML = `
-                        <img src="${cardImages[cardNum]}" alt="Carte ${cardNum}">
-                        <div class="card-count">${cardCounts[cardNum]}x</div>
-                    `;
-                    container.appendChild(cardDiv);
-                }, index * 100);
-            });
-
-            document.getElementById('cardsReveal').classList.add('active');
-        }
-
-        function displayMultipleDraws(quantity, totalWins, allDraws, boosterName, dropWon, alignmentWon) {
-            const container = document.getElementById('cardsContainer');
-            const resultMessage = document.getElementById('resultMessage');
-            container.innerHTML = '';
-
-            if (totalWins > 0) {
-                resultMessage.textContent = `🎉 ${totalWins} CARRÉ${totalWins > 1 ? 'S' : ''} sur ${quantity} tirages !`;
-                resultMessage.className = 'result-message win';
-            } else if (dropWon) {
-                resultMessage.textContent = `DROP GAGNÉ sur ${quantity} tirages !`;
-                resultMessage.className = 'result-message win';
-            } else if (alignmentWon) {
-                resultMessage.textContent = `BONUS SPÉCIAL sur ${quantity} tirages !`;
-                resultMessage.className = 'result-message win';
-            } else {
-                resultMessage.textContent = `Pas de carré sur ${quantity} tirages...`;
-                resultMessage.className = 'result-message lose';
-            }
-
-            const summaryDiv = document.createElement('div');
-            summaryDiv.style.cssText = `
-                background: rgba(0, 0, 0, 0.7);
-                padding: 20px 30px;
-                border-radius: 20px;
-                backdrop-filter: blur(10px);
-                border: 2px solid rgba(255, 215, 0, 0.3);
-                font-size: 1.2em;
-                line-height: 1.8;
-                max-width: 800px;
-                margin: 0 auto 30px auto;
-                display: flex;
-                gap: 30px;
-                justify-content: center;
-                flex-wrap: wrap;
-            `;
-            
-            summaryDiv.innerHTML = `
-                <div style="color: #10ac84;">
-                    ✅ Carrés: <strong>${totalWins}</strong>
-                </div>
-                <div style="color: #ff6b9d;">
-                    ❌ Échecs: <strong>${quantity - totalWins}</strong>
-                </div>
-                <div style="color: #ffd700;">
-                    📈 Réussite: <strong>${((totalWins / quantity) * 100).toFixed(6)}%</strong>
-                </div>
-                ${dropWon ? '<div style="color: #f39c12;">💰 DROP: <strong>GAGNÉ</strong></div>' : ''}
-                ${alignmentWon ? '<div style="color: #9b59b6;">✨ BONUS: <strong>GAGNÉ</strong></div>' : ''}
-            `;
-            
-            container.appendChild(summaryDiv);
-
-            // Affichage de tous les tirages
-            const allDrawsContainer = document.createElement('div');
-            allDrawsContainer.style.cssText = `
-                display: flex;
-                flex-direction: column;
-                gap: 25px;
-                margin-top: 20px;
-            `;
-
-            allDraws.forEach((draw, drawIndex) => {
-                setTimeout(() => {
-                    const drawDiv = document.createElement('div');
-                    drawDiv.style.cssText = `
-                        background: rgba(0, 0, 0, 0.6);
-                        padding: 20px;
-                        border-radius: 15px;
-                        border: 2px solid ${draw.quadCard || draw.alignmentCard ? 'rgba(255, 215, 0, 0.5)' : 'rgba(255, 255, 255, 0.2)'};
-                        backdrop-filter: blur(5px);
-                    `;
-
-                    const drawTitle = document.createElement('div');
-                    drawTitle.style.cssText = `
-                        font-size: 1.3em;
-                        font-weight: bold;
-                        margin-bottom: 15px;
-                        color: ${draw.quadCard || draw.alignmentCard ? '#ffd700' : '#fff'};
-                        text-align: center;
-                    `;
-                    
-                    let titleText = `Tirage #${drawIndex + 1}`;
-                    if (draw.quadCard) {
-                        titleText = `🏆 Tirage #${drawIndex + 1} - CARRÉ !`;
-                    } else if (draw.alignmentCard) {
-                        titleText = `✨ Tirage #${drawIndex + 1} - BONUS SPÉCIAL !`;
-                    }
-                    
-                    drawTitle.textContent = titleText;
-                    drawDiv.appendChild(drawTitle);
-
-                    const cardsRow = document.createElement('div');
-                    cardsRow.style.cssText = `
-                        display: flex;
-                        gap: 15px;
-                        flex-wrap: wrap;
-                        justify-content: center;
-                    `;
-
-                    const cardCounts = {};
-                    draw.cards.forEach(card => {
-                        cardCounts[card] = (cardCounts[card] || 0) + 1;
-                    });
-
-                    draw.cards.forEach((cardNum, cardIndex) => {
-                        setTimeout(() => {
-                            const cardDiv = document.createElement('div');
-                            cardDiv.className = 'card';
-                            if (draw.quadCard === cardNum || draw.alignmentCard === cardNum) {
-                                cardDiv.classList.add('is-quad');
-                            }
-                            
-                            cardDiv.innerHTML = `
-                                <img src="${cardImages[cardNum]}" alt="Carte ${cardNum}">
-                                <div class="card-count">${cardCounts[cardNum]}x</div>
-                            `;
-                            cardsRow.appendChild(cardDiv);
-                        }, cardIndex * 50);
-                    });
-
-                    drawDiv.appendChild(cardsRow);
-                    allDrawsContainer.appendChild(drawDiv);
-                }, drawIndex * 200);
-            });
-
-            container.appendChild(allDrawsContainer);
-            document.getElementById('cardsReveal').classList.add('active');
-        }
-
-        function closeReveal() {
-            document.getElementById('cardsReveal').classList.remove('active');
-        }
-
-        function updateStats() {
-            document.getElementById('attempts').textContent = attempts;
-            document.getElementById('wins').textContent = wins;
-            const winRate = attempts > 0 ? ((wins / attempts) * 100).toFixed(6) : 0;
-            document.getElementById('winRate').textContent = winRate + '%';
-        }
-
-        function displayAllCards() {
-            const grid = document.getElementById('collectionGrid');
-            grid.innerHTML = '';
-
-            for (let i = 1; i <= TOTAL_CARD_TYPES; i++) {
-                const cardDiv = document.createElement('div');
-                cardDiv.className = 'collection-card';
-                
-                cardDiv.innerHTML = `
-                    <img src="${cardImages[i]}" alt="Carte ${i}">
-                    <div class="card-label">Carte ${i}</div>
-                `;
-                
-                grid.appendChild(cardDiv);
-            }
-        }
-
-        // Initialisation du jeu
-        function initGame() {
-            // Charger les données sauvegardées
-            const dataLoaded = loadGameData();
-            
-            // Initialiser l'affichage
-            updateDropPoolDisplay();
-            updateAlignmentCounterDisplay();
-            updateLastAlignmentDisplay();
-            updateStats();
-            displayAllCards();
-            
-            // Restaurer les sélections de quantité
-            if (dataLoaded) {
-                // Restaurer les boutons de quantité active pour le booster bronze
-                const bronzeQuantityBtns = document.querySelectorAll('.booster.bronze .quantity-btn');
-                bronzeQuantityBtns.forEach(btn => {
-                    const quantity = parseInt(btn.textContent);
-                    if (quantity === quantities.bronze) {
-                        btn.classList.add('active');
+                    if (pathCurve > 0 && i % 2 === 0) {
+                        const cp1x = p1.x + pathCurve;
+                        const cp1y = p1.y;
+                        const cp2x = p2.x - pathCurve;
+                        const cp2y = p2.y;
+                        ctx.bezierCurveTo(cp1x, cp1y, cp2x, cp2y, p2.x, p2.y);
                     } else {
-                        btn.classList.remove('active');
+                        ctx.lineTo(p2.x, p2.y);
                     }
+                }
+                ctx.stroke();
+            }
+
+            // Dessiner les points en mode création
+            if (pathCreationMode && pathNodes.length > 0) {
+                pathNodes.forEach((point, index) => {
+                    ctx.beginPath();
+                    ctx.arc(point.x, point.y, 8, 0, Math.PI * 2);
+                    ctx.fillStyle = index === 0 ? '#10b981' : 
+                                   index === pathNodes.length - 1 ? '#ef4444' : '#3b82f6';
+                    ctx.fill();
+                    ctx.strokeStyle = 'white';
+                    ctx.lineWidth = 2;
+                    ctx.stroke();
+                    
+                    ctx.fillStyle = 'white';
+                    ctx.font = 'bold 10px Arial';
+                    ctx.textAlign = 'center';
+                    ctx.textBaseline = 'middle';
+                    ctx.fillText((index + 1).toString(), point.x, point.y);
+                });
+            }
+        }
+
+        // Fonctions pour le fond d'écran
+        function loadBackgroundFromUrl() {
+            const url = document.getElementById('background-url-input').value.trim();
+            if (!url) return;
+            
+            const img = new Image();
+            img.crossOrigin = "anonymous";
+            img.onload = function() {
+                backgroundImage = img;
+                fitBackgroundImage();
+                saveSettings();
+            };
+            img.onerror = function() {
+                alert("❌ Erreur de chargement de l'image de fond");
+            };
+            img.src = url;
+        }
+
+        function loadBackgroundFromFile(input) {
+            if (!input.files[0]) return;
+            
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                const img = new Image();
+                img.onload = function() {
+                    backgroundImage = img;
+                    fitBackgroundImage();
+                    saveSettings();
+                };
+                img.src = e.target.result;
+            };
+            reader.readAsDataURL(input.files[0]);
+        }
+
+        function fitBackgroundImage() {
+            if (!backgroundImage) return;
+            
+            const ratioW = canvas.width / backgroundImage.width;
+            const ratioH = canvas.height / backgroundImage.height;
+            backgroundScale = Math.max(ratioW, ratioH);
+            
+            backgroundX = (canvas.width - backgroundImage.width * backgroundScale) / 2;
+            backgroundY = (canvas.height - backgroundImage.height * backgroundScale) / 2;
+            
+            draw();
+            saveSettings();
+        }
+
+        function adjustBackgroundOpacity(delta) {
+            backgroundOpacity = Math.max(0.1, Math.min(1.0, backgroundOpacity + delta));
+            document.getElementById('bg-opacity-display').innerText = backgroundOpacity.toFixed(1);
+            draw();
+            saveSettings();
+        }
+
+        function adjustBackgroundBlur(delta) {
+            backgroundBlur = Math.max(0, Math.min(20, backgroundBlur + delta));
+            document.getElementById('bg-blur-display').innerText = `${backgroundBlur}px`;
+            draw();
+            saveSettings();
+        }
+
+        function clearBackground() {
+            backgroundImage = null;
+            draw();
+            saveSettings();
+        }
+
+        // Fonctions pour la piste
+        function loadTrackFromUrl() {
+            const url = document.getElementById('track-url-input').value.trim();
+            if (!url) return;
+            
+            const img = new Image();
+            img.crossOrigin = "anonymous";
+            img.onload = function() {
+                trackImage = img;
+                fitTrackImage();
+                saveSettings();
+            };
+            img.onerror = function() {
+                alert("❌ Erreur de chargement de l'image");
+            };
+            img.src = url;
+        }
+
+        function loadTrackFromFile(input) {
+            if (!input.files[0]) return;
+            
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                const img = new Image();
+                img.onload = function() {
+                    trackImage = img;
+                    fitTrackImage();
+                    saveSettings();
+                };
+                img.src = e.target.result;
+            };
+            reader.readAsDataURL(input.files[0]);
+        }
+
+        function fitTrackImage() {
+            if (!trackImage) return;
+            
+            const ratioW = canvas.width / trackImage.width;
+            const ratioH = canvas.height / trackImage.height;
+            trackScale = Math.min(ratioW, ratioH) * 0.95;
+            
+            trackX = (canvas.width - trackImage.width * trackScale) / 2;
+            trackY = (canvas.height - trackImage.height * trackScale) / 2;
+            
+            useCustomSize = false;
+            trackWidthPercent = 90;
+            trackHeightPercent = 90;
+            
+            document.getElementById('scale-display').innerText = trackScale.toFixed(2);
+            document.getElementById('width-display').innerText = `${trackWidthPercent}%`;
+            document.getElementById('height-display').innerText = `${trackHeightPercent}%`;
+            draw();
+            saveSettings();
+        }
+
+        function adjustTrackScale(delta) {
+            if (!trackImage) return;
+            
+            trackScale = Math.max(0.1, trackScale + delta);
+            document.getElementById('scale-display').innerText = trackScale.toFixed(2);
+            draw();
+            saveSettings();
+        }
+
+        function adjustTrackWidth(delta) {
+            trackWidthPercent = Math.max(20, Math.min(200, trackWidthPercent + delta));
+            document.getElementById('width-display').innerText = `${trackWidthPercent}%`;
+            useCustomSize = true;
+            draw();
+            saveSettings();
+        }
+
+        function adjustTrackHeight(delta) {
+            trackHeightPercent = Math.max(20, Math.min(200, trackHeightPercent + delta));
+            document.getElementById('height-display').innerText = `${trackHeightPercent}%`;
+            useCustomSize = true;
+            draw();
+            saveSettings();
+        }
+
+        function resetTrackSize() {
+            useCustomSize = false;
+            trackWidthPercent = 90;
+            trackHeightPercent = 90;
+            trackX = 0;
+            trackY = 0;
+            
+            document.getElementById('width-display').innerText = `${trackWidthPercent}%`;
+            document.getElementById('height-display').innerText = `${trackHeightPercent}%`;
+            draw();
+            saveSettings();
+        }
+
+        function adjustOffsetY(delta) {
+            globalBallOffsetY += delta;
+            document.getElementById('offset-display').innerText = globalBallOffsetY;
+            if (!pathCreationMode) {
+                generateDefaultPath();
+            }
+            draw();
+            saveSettings();
+        }
+
+        function adjustRows(delta) {
+            trackRows = Math.max(2, Math.min(10, trackRows + delta));
+            document.getElementById('rows-display').innerText = trackRows;
+            if (!pathCreationMode) {
+                generateDefaultPath();
+            }
+            draw();
+            saveSettings();
+        }
+
+        function clearTrackImage() {
+            trackImage = null;
+            draw();
+            saveSettings();
+        }
+
+        function toggleDebug() {
+            showDebugPath = !showDebugPath;
+            const btn = document.getElementById('btn-debug');
+            
+            if (showDebugPath) {
+                btn.innerText = "👁️ On";
+                btn.classList.add('text-indigo-600');
+                btn.style.borderColor = '#6366f1';
+            } else {
+                btn.innerText = "👁️ Off";
+                btn.classList.remove('text-indigo-600');
+                btn.style.borderColor = '';
+            }
+            
+            draw();
+            saveSettings();
+        }
+
+        // Gestion du drag
+        function startDrag(e) {
+            lastMouseX = e.clientX;
+            lastMouseY = e.clientY;
+            
+            if (pathCreationMode && draggingNode !== null) {
+                dragMode = 'path';
+                return;
+            }
+            
+            if (backgroundImage) {
+                dragMode = 'background';
+                isDraggingBackground = true;
+            } else if (trackImage) {
+                dragMode = 'track';
+                isDraggingTrack = true;
+            }
+            
+            canvas.classList.add('dragging');
+        }
+
+        function handleDrag(e) {
+            const deltaX = e.clientX - lastMouseX;
+            const deltaY = e.clientY - lastMouseY;
+            lastMouseX = e.clientX;
+            lastMouseY = e.clientY;
+            
+            if (dragMode === 'path' && draggingNode !== null) {
+                pathNodes[draggingNode].x += deltaX;
+                pathNodes[draggingNode].y += deltaY;
+                
+                const nodeEl = document.querySelector(`.path-node[data-index="${draggingNode}"]`);
+                if (nodeEl) {
+                    nodeEl.style.left = (pathNodes[draggingNode].x - 12) + 'px';
+                    nodeEl.style.top = (pathNodes[draggingNode].y - 12) + 'px';
+                }
+            } else if (isDraggingBackground && dragMode === 'background') {
+                backgroundX += deltaX;
+                backgroundY += deltaY;
+            } else if (isDraggingTrack && dragMode === 'track') {
+                trackX += deltaX;
+                trackY += deltaY;
+            }
+            
+            if (isDraggingBackground || isDraggingTrack || dragMode === 'path') {
+                draw();
+            }
+        }
+
+        function stopDrag() {
+            isDraggingTrack = false;
+            isDraggingBackground = false;
+            if (dragMode === 'path') {
+                draggingNode = null;
+                saveSettings();
+            }
+            canvas.classList.remove('dragging');
+        }
+
+        // Dessin
+        function drawBackground() {
+            if (!backgroundImage) return;
+            
+            ctx.save();
+            
+            if (backgroundBlur > 0) {
+                ctx.filter = `blur(${backgroundBlur}px)`;
+            }
+            
+            const imgWidth = backgroundImage.width * backgroundScale;
+            const imgHeight = backgroundImage.height * backgroundScale;
+            
+            ctx.globalAlpha = backgroundOpacity;
+            ctx.drawImage(backgroundImage, backgroundX, backgroundY, imgWidth, imgHeight);
+            
+            ctx.restore();
+        }
+
+        function drawTrack() {
+            let drawWidth, drawHeight, drawX, drawY;
+            
+            if (trackImage) {
+                if (useCustomSize) {
+                    drawWidth = (canvas.width * trackWidthPercent) / 100;
+                    drawHeight = (canvas.height * trackHeightPercent) / 100;
+                    drawX = (canvas.width - drawWidth) / 2 + trackX;
+                    drawY = (canvas.height - drawHeight) / 2 + trackY;
+                    
+                    ctx.drawImage(trackImage, drawX, drawY, drawWidth, drawHeight);
+                } else {
+                    const imgWidth = trackImage.width * trackScale;
+                    const imgHeight = trackImage.height * trackScale;
+                    drawWidth = imgWidth;
+                    drawHeight = imgHeight;
+                    drawX = trackX;
+                    drawY = trackY;
+                    
+                    ctx.drawImage(trackImage, drawX, drawY, drawWidth, drawHeight);
+                }
+            }
+            
+            drawPathWithPoints();
+        }
+
+        // Calcul de position sur le chemin
+        function getPositionOnPath(progress) {
+            if (pathNodes.length < 2) return { x: 0, y: 0 };
+            
+            const totalLength = calculatePathLength();
+            const targetDistance = progress * totalLength;
+            
+            let accumulatedLength = 0;
+            for (let i = 0; i < pathNodes.length - 1; i++) {
+                const p1 = pathNodes[i];
+                const p2 = pathNodes[i + 1];
+                const segmentLength = Math.sqrt(
+                    Math.pow(p2.x - p1.x, 2) + Math.pow(p2.y - p1.y, 2)
+                );
+                
+                if (accumulatedLength + segmentLength >= targetDistance) {
+                    const segmentProgress = (targetDistance - accumulatedLength) / segmentLength;
+                    return {
+                        x: p1.x + (p2.x - p1.x) * segmentProgress,
+                        y: p1.y + (p2.y - p1.y) * segmentProgress
+                    };
+                }
+                accumulatedLength += segmentLength;
+            }
+            
+            return pathNodes[pathNodes.length - 1];
+        }
+
+        function calculatePathLength() {
+            let length = 0;
+            for (let i = 0; i < pathNodes.length - 1; i++) {
+                const p1 = pathNodes[i];
+                const p2 = pathNodes[i + 1];
+                length += Math.sqrt(
+                    Math.pow(p2.x - p1.x, 2) + Math.pow(p2.y - p1.y, 2)
+                );
+            }
+            return length;
+        }
+
+        // Dessin des joueurs (MODIFIÉ)
+        function drawPlayers() {
+            if (players.length === 0) return;
+            
+            players.forEach(player => {
+                if (player.isFinished) return;
+                
+                const pos = getPositionOnPath(player.progress);
+                
+                // Ombre portée
+                ctx.beginPath();
+                ctx.arc(pos.x, pos.y + 3, 8, 0, Math.PI * 2);
+                ctx.fillStyle = 'rgba(0, 0, 0, 0.2)';
+                ctx.fill();
+                
+                // Cercle du joueur
+                ctx.beginPath();
+                ctx.arc(pos.x, pos.y, 8, 0, Math.PI * 2);
+                ctx.fillStyle = player.color;
+                ctx.fill();
+                
+                // Bordure blanche
+                ctx.strokeStyle = 'white';
+                ctx.lineWidth = 2;
+                ctx.stroke();
+                
+                // Nom du joueur - EN BLANC ET 1,6 FOIS PLUS GRAND
+                ctx.fillStyle = 'white';
+                ctx.font = 'bold 19px Nunito'; // Augmenté de 12px à 19px (≈ 1.6x)
+                ctx.textAlign = 'center';
+                ctx.textBaseline = 'bottom';
+                
+                // Ombre du texte pour meilleure lisibilité
+                ctx.shadowColor = 'rgba(0, 0, 0, 0.7)';
+                ctx.shadowBlur = 4;
+                ctx.shadowOffsetX = 1;
+                ctx.shadowOffsetY = 1;
+                
+                ctx.fillText(player.name, pos.x, pos.y - 12);
+                
+                // Réinitialiser l'ombre
+                ctx.shadowColor = 'transparent';
+                ctx.shadowBlur = 0;
+                ctx.shadowOffsetX = 0;
+                ctx.shadowOffsetY = 0;
+            });
+        }
+
+        // Dessin principal
+        function draw() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            
+            drawBackground();
+            drawTrack();
+            drawPlayers();
+        }
+
+        // Fonctions de connexion au serveur
+        function testServerConnection() {
+            console.log("Test de connexion au serveur...");
+            
+            fetch(`http://localhost:${SERVER_PORT}/api/status`)
+                .then(response => response.json())
+                .then(data => {
+                    console.log("✅ Serveur disponible:", data);
+                    document.getElementById('socket-text').innerText = 'PRÊT';
+                    document.getElementById('socket-dot').className = 'status-indicator status-on';
+                })
+                .catch(error => {
+                    console.warn("⚠️ Serveur non disponible:", error.message);
+                    document.getElementById('socket-text').innerText = 'HORS LIGNE';
+                });
+        }
+
+        function connectToServer() {
+            const btn = document.getElementById('btn-connect');
+            const statusDot = document.getElementById('socket-dot');
+            const statusText = document.getElementById('socket-text');
+            
+            if (socket && socket.readyState === WebSocket.OPEN) {
+                alert("Déjà connecté au serveur !");
+                return;
+            }
+            
+            btn.innerText = "Connexion...";
+            btn.disabled = true;
+            
+            try {
+                socket = new WebSocket(SERVER_WS_URL);
+                
+                socket.onopen = function() {
+                    console.log("✅ Connecté au serveur WebSocket !");
+                    statusText.innerText = 'CONNECTÉ';
+                    statusDot.className = 'status-indicator status-on';
+                    btn.innerText = "✅ Connecté !";
+                    btn.disabled = true;
+                    
+                    socket.send(JSON.stringify({
+                        type: 'CLIENT_CONNECTED',
+                        message: 'Client web connecté',
+                        timestamp: new Date().toISOString()
+                    }));
+                    
+                    saveSettings();
+                };
+                
+                socket.onmessage = function(event) {
+                    try {
+                        const data = JSON.parse(event.data);
+                        console.log("📨 Message serveur:", data);
+                        handleServerMessage(data);
+                    } catch (error) {
+                        console.error("❌ Erreur parsing message:", error);
+                    }
+                };
+                
+                socket.onclose = function() {
+                    console.log("❌ Déconnecté du serveur");
+                    statusText.innerText = 'DÉCONNECTÉ';
+                    statusDot.className = 'status-indicator status-off';
+                    btn.innerText = "📡 Reconnecter";
+                    btn.disabled = false;
+                    socket = null;
+                    saveSettings();
+                };
+                
+                socket.onerror = function(error) {
+                    console.error("❌ Erreur WebSocket:", error);
+                    statusText.innerText = 'ERREUR';
+                    statusDot.className = 'status-indicator status-off';
+                    btn.innerText = "❌ Erreur - Réessayer";
+                    btn.disabled = false;
+                    saveSettings();
+                };
+                
+            } catch (error) {
+                console.error("❌ Erreur création WebSocket:", error);
+                btn.innerText = "❌ Erreur";
+                btn.disabled = false;
+                saveSettings();
+            }
+        }
+
+        // Gestion des messages du serveur
+        function handleServerMessage(data) {
+            switch(data.type) {
+                case 'SERVER_MESSAGE':
+                    console.log("Serveur:", data.message);
+                    break;
+                    
+                case 'TIKFINTY_ACTION':
+                    handleTikFinityAction(data);
+                    break;
+                    
+                case 'SNAKE_JOIN_SUCCESS':
+                    console.log("✅ Joueur ajouté:", data);
+                    updatePlayerCount(data.currentPlayers, data.maxPlayers);
+                    saveSettings();
+                    break;
+                    
+                case 'SNAKE_PLAYER_ADDED':
+                    console.log("➕ Nouveau joueur:", data.username);
+                    break;
+                    
+                case 'SNAKE_GAME_STARTING':
+                    console.log("🚀 Jeu démarré avec", data.players.length, "joueurs");
+                    startGame();
+                    saveSettings();
+                    break;
+                    
+                case 'SNAKE_UPDATE':
+                    updateGameState(data.players);
+                    break;
+                    
+                case 'SNAKE_PLAYER_FINISHED':
+                    console.log(`🏁 ${data.username} a terminé #${data.position}`);
+                    break;
+                    
+                case 'SNAKE_GAME_END':
+                    console.log("🎮 Jeu terminé ! Classement:", data.rankings);
+                    showFinalResults(data.rankings);
+                    saveSettings();
+                    break;
+                    
+                case 'SNAKE_GAME_RESET':
+                    console.log("🔄 Jeu réinitialisé");
+                    resetGame();
+                    saveSettings();
+                    break;
+                    
+                case 'PONG':
+                    break;
+                    
+                default:
+                    console.log("Message non géré:", data);
+            }
+        }
+
+        function handleTikFinityAction(data) {
+            const action = data.action;
+            if (action && action.game === 'snake') {
+                switch(action.type) {
+                    case 'join':
+                        if (action.username) {
+                            addPlayerToGame(action.username, true);
+                        }
+                        break;
+                    case 'start':
+                        forceStart();
+                        break;
+                    case 'reset':
+                        resetRegistrations();
+                        break;
+                }
+            }
+        }
+
+        // Mettre à jour l'état du jeu
+        function updateGameState(serverPlayers) {
+            if (!isRacing) return;
+            
+            serverPlayers.forEach(serverPlayer => {
+                const localPlayer = players.find(p => p.id === serverPlayer.id || p.name === serverPlayer.username);
+                if (localPlayer) {
+                    localPlayer.progress = serverPlayer.progress;
+                    localPlayer.isFinished = serverPlayer.isFinished;
+                }
+            });
+            
+            draw();
+        }
+
+        function updatePlayerCount(current, max) {
+            document.getElementById('player-count-display').innerText = `${current}/${max}`;
+        }
+
+        function joinSnakeGame(username) {
+            if (!socket || socket.readyState !== WebSocket.OPEN) {
+                alert("Veuillez d'abord vous connecter au serveur !");
+                return false;
+            }
+            
+            const userId = 'user_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9);
+            
+            socket.send(JSON.stringify({
+                type: 'SNAKE_JOIN',
+                gameId: 'default',
+                username: username,
+                userId: userId
+            }));
+            
+            return true;
+        }
+
+        function startSnakeGame() {
+            if (!socket || socket.readyState !== WebSocket.OPEN) {
+                alert("Non connecté au serveur !");
+                return false;
+            }
+            
+            socket.send(JSON.stringify({
+                type: 'SNAKE_START',
+                gameId: 'default'
+            }));
+            
+            return true;
+        }
+
+        function resetSnakeGame() {
+            if (!socket || socket.readyState !== WebSocket.OPEN) return false;
+            
+            socket.send(JSON.stringify({
+                type: 'SNAKE_RESET',
+                gameId: 'default'
+            }));
+            
+            return true;
+        }
+
+        // Ajouter un joueur
+        function addPlayerToGame(name, fromServer = false) {
+            if (isRacing) {
+                waitingQueue.push(name);
+                updateQueueDisplay();
+                saveSettings();
+                return;
+            }
+            
+            if (registeredNames.length >= MAX_PLAYERS) {
+                waitingQueue.push(name);
+                updateQueueDisplay();
+                saveSettings();
+                return;
+            }
+            
+            if (socket && socket.readyState === WebSocket.OPEN && !fromServer) {
+                const success = joinSnakeGame(name);
+                if (!success) return;
+            }
+            
+            registeredNames.push(name);
+            const player = new Player(players.length, name);
+            players.push(player);
+            
+            draw();
+            renderPlayerList();
+            checkAutoStart();
+            saveSettings();
+        }
+
+        // Fonctions d'interface
+        function togglePanel() {
+            const panel = document.getElementById('setup-layer');
+            const restoreBtn = document.getElementById('restore-btn');
+            
+            if (panel.style.display === 'none') {
+                panel.style.display = 'flex';
+                restoreBtn.classList.add('hidden');
+            } else {
+                panel.style.display = 'none';
+                restoreBtn.classList.remove('hidden');
+            }
+            saveSettings();
+        }
+
+        function startPanelDrag(e) {
+            if (e.target.closest('button')) return;
+            
+            isDraggingPanel = true;
+            startX = e.clientX;
+            startY = e.clientY;
+            const setupLayer = document.getElementById('setup-layer');
+            startLeft = setupLayer.offsetLeft;
+            startTop = setupLayer.offsetTop;
+            
+            document.addEventListener('mousemove', onPanelDrag);
+            document.addEventListener('mouseup', stopPanelDrag);
+        }
+
+        function onPanelDrag(e) {
+            if (!isDraggingPanel) return;
+            
+            const deltaX = e.clientX - startX;
+            const deltaY = e.clientY - startY;
+            const setupLayer = document.getElementById('setup-layer');
+            
+            setupLayer.style.left = (startLeft + deltaX) + 'px';
+            setupLayer.style.top = (startTop + deltaY) + 'px';
+        }
+
+        function stopPanelDrag() {
+            isDraggingPanel = false;
+            document.removeEventListener('mousemove', onPanelDrag);
+            document.removeEventListener('mouseup', stopPanelDrag);
+            saveSettings();
+        }
+
+        function addPlayerManual() {
+            const input = document.getElementById('player-input');
+            const name = input.value.trim();
+            
+            if (name) {
+                addPlayerToGame(name);
+                input.value = '';
+            }
+        }
+
+        function simulateJoin() {
+            const randomNum = Math.floor(Math.random() * 100);
+            addPlayerToGame(`Joueur-${randomNum}`);
+        }
+
+        function startTestGame() {
+            if (isRacing) return;
+            
+            const neededPlayers = MAX_PLAYERS - registeredNames.length;
+            if (neededPlayers <= 0) return;
+            
+            const count = Math.min(neededPlayers, 5);
+            for (let i = 0; i < count; i++) {
+                const botNum = Math.floor(Math.random() * 999);
+                addPlayerToGame(`Bot-${botNum}`);
+            }
+        }
+
+        function updateQueueDisplay() {
+            const queueBar = document.getElementById('queue-bar');
+            const queueCount = document.getElementById('queue-count');
+            
+            queueCount.innerText = waitingQueue.length;
+            queueBar.style.display = waitingQueue.length > 0 ? 'block' : 'none';
+        }
+
+        function renderPlayerList() {
+            const list = document.getElementById('player-list');
+            list.innerHTML = '';
+            
+            if (registeredNames.length === 0) {
+                const emptyMsg = document.createElement('div');
+                emptyMsg.className = "text-gray-400 italic text-center col-span-full text-xs mt-4";
+                emptyMsg.id = "empty-msg";
+                emptyMsg.innerText = "Aucun joueur...";
+                list.appendChild(emptyMsg);
+            } else {
+                registeredNames.forEach((name, index) => {
+                    const badge = document.createElement('div');
+                    badge.className = 'name-badge border-l-4 shadow-sm';
+                    badge.style.borderColor = COLORS[index % COLORS.length];
+                    
+                    const nameSpan = document.createElement('span');
+                    nameSpan.className = 'truncate w-full';
+                    nameSpan.innerText = name;
+                    
+                    badge.appendChild(nameSpan);
+                    list.appendChild(badge);
                 });
             }
             
-            // Sauvegarde automatique toutes les 30 secondes
-            setInterval(saveGameData, 30000);
-            
-            // Sauvegarde automatique lors de la fermeture de la page
-            window.addEventListener('beforeunload', saveGameData);
-            
-            console.log('Jeu initialisé avec sauvegarde automatique');
+            document.getElementById('player-count-display').innerText = `${registeredNames.length}/${MAX_PLAYERS}`;
         }
 
-        // Démarrer le jeu
-        initGame();
+        function resetRegistrations() {
+            if (isRacing) return;
+            
+            if (socket && socket.readyState === WebSocket.OPEN) {
+                resetSnakeGame();
+            }
+            
+            registeredNames = [];
+            waitingQueue = [];
+            players = [];
+            
+            renderPlayerList();
+            updateQueueDisplay();
+            draw();
+            checkAutoStart();
+            saveSettings();
+        }
+
+        function checkAutoStart() {
+            const btn = document.getElementById('btn-launch-game');
+            
+            if (registeredNames.length >= MAX_PLAYERS) {
+                btn.innerHTML = "🚀 AUTO !";
+                setTimeout(startGame, 1000);
+            } else if (registeredNames.length > 1) {
+                btn.disabled = false;
+                btn.classList.remove('opacity-50');
+                btn.innerHTML = `Lancer (${registeredNames.length})`;
+            } else {
+                btn.disabled = true;
+                btn.classList.add('opacity-50');
+                btn.innerHTML = "Attente...";
+            }
+        }
+
+        function forceStart() {
+            if (registeredNames.length < 2) {
+                alert("Il faut au moins 2 joueurs !");
+                return;
+            }
+            
+            if (socket && socket.readyState === WebSocket.OPEN) {
+                startSnakeGame();
+            } else {
+                startGame();
+            }
+        }
+
+        // Classe Joueur
+        class Player {
+            constructor(id, name) {
+                this.id = id;
+                this.name = name;
+                this.color = COLORS[id % COLORS.length];
+                this.progress = 0;
+                this.speedBase = 0.0001 + Math.random() * 0.0001;
+                this.laneOffset = (id - (MAX_PLAYERS / 2)) * 2.5;
+                this.multiplier = 1;
+                this.effectEnd = 0;
+                this.isFinished = false;
+                this.finishTime = null;
+            }
+
+            update() {
+                if (this.progress < 1 && !this.isFinished) {
+                    if (Date.now() > this.effectEnd) {
+                        this.multiplier = 1;
+                    }
+                    
+                    this.progress += (this.speedBase + Math.random() * 0.0004) * this.multiplier;
+                    
+                    if (this.progress >= 1) {
+                        this.progress = 1;
+                        this.isFinished = true;
+                        this.finishTime = Date.now();
+                        return true;
+                    }
+                }
+                return false;
+            }
+        }
+
+        // Canvas et dessin
+        function resizeCanvas() {
+            const container = document.getElementById('game-container');
+            if (!container) return;
+            
+            canvas.width = container.clientWidth * 0.95;
+            canvas.height = container.clientHeight * 0.95;
+            
+            if (!isRacing && !winner) {
+                if (!pathCreationMode) {
+                    generateDefaultPath();
+                }
+                draw();
+                saveSettings();
+            }
+        }
+
+        // Mise à jour du jeu
+        function update() {
+            if (!isRacing) return;
+            
+            let finishedCount = 0;
+            
+            players.forEach(player => {
+                if (player.update()) {
+                    finishedCount++;
+                }
+                
+                if (player.progress >= 1 && !winner) {
+                    winner = player;
+                }
+            });
+            
+            draw();
+            
+            if (Math.random() > 0.8) {
+                renderLeaderboard();
+            }
+            
+            if (winner && document.getElementById('winner-overlay').style.display === 'none') {
+                endGame(winner);
+            }
+            
+            if (finishedCount < players.length || document.getElementById('winner-overlay').style.display === 'none') {
+                animationId = requestAnimationFrame(update);
+            }
+        }
+
+        function renderLeaderboard() {
+            const leaderList = document.getElementById('leader-list');
+            const sortedPlayers = [...players]
+                .sort((a, b) => b.progress - a.progress)
+                .slice(0, 5);
+            
+            leaderList.innerHTML = sortedPlayers.map((player, index) => `
+                <div class="flex items-center gap-2 mb-1 text-sm">
+                    <span class="font-bold text-gray-500 w-4">${index + 1}.</span>
+                    <div class="w-2 h-2 rounded-full" style="background:${player.color}"></div>
+                    <span class="truncate font-bold">${player.name}</span>
+                    <span class="ml-auto text-xs text-gray-500">${Math.round(player.progress * 100)}%</span>
+                </div>
+            `).join('');
+        }
+
+        function startGame() {
+            if (isRacing) return;
+            
+            isRacing = true;
+            winner = null;
+            
+            document.getElementById('winner-overlay').style.display = 'none';
+            document.getElementById('setup-layer').style.display = 'none';
+            document.getElementById('restore-btn').classList.remove('hidden');
+            document.getElementById('leaderboard').style.display = 'none';
+            
+            players.forEach(player => {
+                player.progress = 0;
+                player.isFinished = false;
+                player.finishTime = null;
+            });
+            
+            update();
+            
+            setTimeout(() => {
+                document.getElementById('leaderboard').style.display = 'block';
+            }, 2000);
+            
+            saveSettings();
+        }
+
+        function endGame(winningPlayer) {
+            document.getElementById('winner-overlay').style.display = 'flex';
+            document.getElementById('winner-name').innerText = winningPlayer.name;
+            document.getElementById('winner-name').style.color = winningPlayer.color;
+            
+            const sortedPlayers = [...players]
+                .sort((a, b) => (a.finishTime || Infinity) - (b.finishTime || Infinity));
+            
+            const resultsTable = document.getElementById('final-results-table');
+            resultsTable.innerHTML = `
+                <thead>
+                    <tr>
+                        <th class="p-2">#</th>
+                        <th class="p-2">Nom</th>
+                        <th class="p-2">Temps</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    ${sortedPlayers.map((player, index) => `
+                        <tr class="border-b border-gray-200">
+                            <td class="p-2">${index + 1}</td>
+                            <td class="p-2 font-bold" style="color:${player.color}">${player.name}</td>
+                            <td class="p-2 text-gray-600">${player.finishTime ? ((player.finishTime - Date.now() + 10000) / 1000).toFixed(1) + 's' : '--'}</td>
+                        </tr>
+                    `).join('')}
+                </tbody>
+            `;
+            
+            winnersHistory.unshift({
+                name: winningPlayer.name,
+                color: winningPlayer.color,
+                time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+            });
+            
+            if (winnersHistory.length > 50) {
+                winnersHistory.pop();
+            }
+            
+            updateHistoryDisplay();
+            
+            startAutoRestart();
+            saveSettings();
+        }
+
+        function updateHistoryDisplay() {
+            const historyList = document.getElementById('history-list');
+            document.getElementById('history-count').innerText = winnersHistory.length;
+            
+            if (winnersHistory.length === 0) {
+                historyList.innerHTML = '<div class="text-gray-400 italic text-center text-xs pt-2">Aucune victoire...</div>';
+            } else {
+                historyList.innerHTML = winnersHistory.map(history => `
+                    <div class="history-item border-l-4" style="border-color:${history.color}">
+                        <span class="font-bold flex-1 truncate">${history.name}</span>
+                        <span class="text-gray-400 text-[10px]">${history.time}</span>
+                    </div>
+                `).join('');
+            }
+        }
+
+        function showFinalResults(rankings) {
+            if (!rankings || rankings.length === 0) return;
+            
+            const resultsTable = document.getElementById('final-results-table');
+            resultsTable.innerHTML = `
+                <thead>
+                    <tr>
+                        <th class="p-2">#</th>
+                        <th class="p-2">Nom</th>
+                        <th class="p-2">Temps</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    ${rankings.map(ranking => `
+                        <tr class="border-b border-gray-200">
+                            <td class="p-2">${ranking.position}</td>
+                            <td class="p-2 font-bold" style="color:${ranking.color}">${ranking.username}</td>
+                            <td class="p-2 text-gray-600">${(ranking.time / 1000).toFixed(2)}s</td>
+                        </tr>
+                    `).join('')}
+                </tbody>
+            `;
+        }
+
+        function startAutoRestart() {
+            let timeLeft = 10;
+            const button = document.getElementById('btn-next-race');
+            
+            if (autoRestartInterval) {
+                clearInterval(autoRestartInterval);
+            }
+            
+            const updateButtonText = () => {
+                if (waitingQueue.length >= MAX_PLAYERS) {
+                    button.innerText = `Auto (${timeLeft}s) - File Pleine!`;
+                } else {
+                    button.innerText = `Suivante (${timeLeft}s)`;
+                }
+            };
+            
+            updateButtonText();
+            
+            autoRestartInterval = setInterval(() => {
+                timeLeft--;
+                updateButtonText();
+                
+                if (timeLeft <= 0) {
+                    clearInterval(autoRestartInterval);
+                    resetGame();
+                }
+            }, 1000);
+        }
+
+        function resetGame() {
+            if (autoRestartInterval) {
+                clearInterval(autoRestartInterval);
+                autoRestartInterval = null;
+            }
+            
+            isRacing = false;
+            winner = null;
+            
+            if (animationId) {
+                cancelAnimationFrame(animationId);
+                animationId = null;
+            }
+            
+            document.getElementById('winner-overlay').style.display = 'none';
+            document.getElementById('setup-layer').style.display = 'flex';
+            document.getElementById('restore-btn').classList.add('hidden');
+            document.getElementById('leaderboard').style.display = 'none';
+            
+            registeredNames = [];
+            players = [];
+            
+            while (waitingQueue.length > 0 && registeredNames.length < MAX_PLAYERS) {
+                const name = waitingQueue.shift();
+                registeredNames.push(name);
+                players.push(new Player(players.length, name));
+            }
+            
+            updateQueueDisplay();
+            renderPlayerList();
+            draw();
+            checkAutoStart();
+            saveSettings();
+        }
+
+        // Démarrer l'application
+        window.addEventListener('load', init);
     </script>
 </body>
 </html>
